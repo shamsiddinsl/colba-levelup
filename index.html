@@ -1,0 +1,1633 @@
+<!DOCTYPE html>
+<html lang="uz">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Colba LevelUp — Imtihon Boshqaruv Tizimi</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <style>
+    body { font-family: 'Inter', sans-serif; background-color: #f8fafc; color: #0f172a; }
+    .tab-active { border-bottom: 2px solid #2563eb; color: #2563eb; font-weight: 600; }
+    .modal-backdrop { background-color: rgba(15, 23, 42, 0.55); backdrop-filter: blur(2px); }
+    @media print { .no-print { display: none !important; } }
+  </style>
+</head>
+<body class="min-h-screen flex flex-col">
+
+  <!-- LOADING OVERLAY -->
+  <div id="loadingOverlay" class="fixed inset-0 bg-white z-50 flex flex-col items-center justify-center">
+    <div class="w-12 h-12 border-4 border-blue-600 border-t-transparent rounded-full animate-spin mb-4"></div>
+    <p class="text-slate-700 font-semibold text-lg">Colba LevelUp bazasiga ulanmoqda...</p>
+    <p class="text-slate-400 text-sm mt-1">Firebase Firestore sinxronizatsiyasi</p>
+  </div>
+
+  <!-- LOGIN SCREEN -->
+  <div id="loginScreen" class="hidden min-h-screen flex items-center justify-center p-4 bg-gradient-to-br from-slate-900 via-blue-950 to-slate-900">
+    <div class="bg-white rounded-2xl shadow-2xl max-w-4xl w-full grid md:grid-cols-5 overflow-hidden">
+      <!-- Left Info -->
+      <div class="md:col-span-2 bg-blue-600 text-white p-8 flex flex-col justify-between">
+        <div>
+          <div class="inline-flex items-center gap-2 bg-blue-500/40 px-3 py-1 rounded-full text-xs font-semibold mb-4">
+            <span class="w-2 h-2 bg-emerald-300 rounded-full animate-pulse"></span> Bulutli Tizim (Live)
+          </div>
+          <h1 class="text-3xl font-extrabold tracking-tight">Colba LevelUp</h1>
+          <p class="text-blue-100 text-sm mt-3 leading-relaxed">
+            Kimyo va Biologiya fanlaridan LevelUp imtihonlarini rejalashtirish, tasdiqlash va ZipGrade natijalarini avtomatik tahlil qilish tizimi.
+          </p>
+        </div>
+        <div class="text-xs text-blue-200 space-y-1 mt-8">
+          <p>• Filiallar: Tinchlik, Nurafshon, Sirg'ali</p>
+          <p>• O'tish bali: 65 ball (100 ballik shkala)</p>
+          <p>• Real vaqtda sinxronizatsiya</p>
+        </div>
+      </div>
+
+      <!-- Right Form -->
+      <div class="md:col-span-3 p-8">
+        <h2 class="text-2xl font-bold text-slate-800">Tizimga kirish</h2>
+        <p class="text-sm text-slate-500 mt-1">Shaxsiy login va PIN-kodingizni kiriting</p>
+
+        <form id="loginForm" class="mt-6 space-y-4">
+          <div>
+            <label class="block text-sm font-medium text-slate-700 mb-1">Login</label>
+            <input type="text" id="loginUsername" required placeholder="Masalan: admin yoki alisher"
+              class="w-full px-4 py-2.5 border border-slate-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none" />
+          </div>
+          <div>
+            <label class="block text-sm font-medium text-slate-700 mb-1">PIN-kod / Parol</label>
+            <input type="password" id="loginPin" required placeholder="••••"
+              class="w-full px-4 py-2.5 border border-slate-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none" />
+          </div>
+          <div id="loginError" class="hidden text-sm text-red-600 bg-red-50 border border-red-200 p-3 rounded-xl"></div>
+          <button type="submit"
+            class="w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold py-2.5 rounded-xl transition shadow-sm">
+            Kirish
+          </button>
+        </form>
+
+        <!-- Quick Demo Login -->
+        <div class="mt-8 pt-6 border-t border-slate-200">
+          <p class="text-xs font-semibold uppercase tracking-wider text-slate-400 mb-3">Tezkor kirish (Sinov uchun)</p>
+          <div class="grid grid-cols-2 gap-2 text-xs">
+            <button onclick="quickLogin('admin', 'admin2026')" class="p-2.5 text-left border border-slate-200 hover:border-blue-500 hover:bg-blue-50 rounded-xl transition">
+              <div class="font-bold text-slate-800">Admin (O'quv bo'limi)</div>
+              <div class="text-slate-500">admin / admin2026</div>
+            </button>
+            <button onclick="quickLogin('alisher', '1111')" class="p-2.5 text-left border border-slate-200 hover:border-blue-500 hover:bg-blue-50 rounded-xl transition">
+              <div class="font-bold text-slate-800">Alisher (Kimyo)</div>
+              <div class="text-slate-500">alisher / 1111</div>
+            </button>
+            <button onclick="quickLogin('malika', '2222')" class="p-2.5 text-left border border-slate-200 hover:border-blue-500 hover:bg-blue-50 rounded-xl transition">
+              <div class="font-bold text-slate-800">Malika (Biologiya)</div>
+              <div class="text-slate-500">malika / 2222</div>
+            </button>
+            <button onclick="quickLogin('jasur', '3333')" class="p-2.5 text-left border border-slate-200 hover:border-blue-500 hover:bg-blue-50 rounded-xl transition">
+              <div class="font-bold text-slate-800">Jasur (Kimyo)</div>
+              <div class="text-slate-500">jasur / 3333</div>
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- MAIN APP -->
+  <div id="appContainer" class="hidden flex-1 flex flex-col">
+    <!-- Top Navbar -->
+    <header class="bg-white border-b border-slate-200 sticky top-0 z-30">
+      <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
+        <div class="flex items-center gap-3">
+          <div class="w-9 h-9 bg-blue-600 text-white rounded-xl flex items-center justify-center font-extrabold text-lg">C</div>
+          <div>
+            <span class="font-extrabold text-slate-900 text-lg">Colba LevelUp</span>
+            <span id="dbStatusBadge" class="ml-2 inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-emerald-50 text-emerald-700 border border-emerald-200">
+              <span class="w-1.5 h-1.5 bg-emerald-500 rounded-full"></span> Bulut ulangan
+            </span>
+          </div>
+        </div>
+
+        <div class="flex items-center gap-4">
+          <div class="text-right hidden sm:block">
+            <div id="currentUserName" class="text-sm font-bold text-slate-800"></div>
+            <div id="currentUserRoleBadge" class="text-xs text-slate-500"></div>
+          </div>
+          <button onclick="logout()" class="px-3.5 py-2 text-sm font-medium text-red-600 hover:bg-red-50 rounded-xl border border-red-200 transition">
+            Chiqish
+          </button>
+        </div>
+      </div>
+
+      <!-- Navigation Tabs -->
+      <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex gap-6 overflow-x-auto text-sm">
+        <button onclick="switchTab('requests')" id="tab-requests" class="py-3 whitespace-nowrap tab-active">
+          Imtihon so'rovlari & Jadval
+        </button>
+        <button onclick="switchTab('results')" id="tab-results" class="py-3 whitespace-nowrap text-slate-600 hover:text-slate-900">
+          Yakuniy natijalar
+        </button>
+        <button onclick="switchTab('groups')" id="tab-groups" class="py-3 whitespace-nowrap text-slate-600 hover:text-slate-900">
+          Guruhlar bazasi
+        </button>
+        <button onclick="switchTab('users')" id="tab-users" class="admin-only hidden py-3 whitespace-nowrap text-slate-600 hover:text-slate-900">
+          Foydalanuvchilar
+        </button>
+        <button onclick="switchTab('settings')" id="tab-settings" class="admin-only hidden py-3 whitespace-nowrap text-slate-600 hover:text-slate-900">
+          Smenalar & Sozlamalar
+        </button>
+        <button onclick="switchTab('audit')" id="tab-audit" class="admin-only hidden py-3 whitespace-nowrap text-slate-600 hover:text-slate-900">
+          Audit Log (Tarix)
+        </button>
+      </div>
+    </header>
+
+    <!-- Main Content -->
+    <main class="max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-6 flex-1">
+
+      <!-- TAB 1: REQUESTS & SCHEDULE -->
+      <section id="view-requests" class="space-y-6">
+        <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+          <div>
+            <h1 class="text-2xl font-bold text-slate-900">Imtihon so'rovlari va jadvali</h1>
+            <p id="requestsSubtitle" class="text-sm text-slate-500 mt-0.5"></p>
+          </div>
+          <button onclick="openNewRequestModal()" class="inline-flex items-center justify-center gap-2 bg-blue-600 hover:bg-blue-700 text-white font-semibold px-4 py-2.5 rounded-xl shadow-sm transition">
+            <span>+ Yangi imtihon so'rovi</span>
+          </button>
+        </div>
+
+        <!-- Filters -->
+        <div class="bg-white p-4 rounded-2xl border border-slate-200 flex flex-wrap gap-3 items-center">
+          <select id="filterReqBranch" onchange="renderRequests()" class="px-3 py-2 border border-slate-300 rounded-xl text-sm bg-white">
+            <option value="ALL">Barcha filiallar</option>
+            <option value="Tinchlik">Tinchlik filiali</option>
+            <option value="Nurafshon">Nurafshon filiali</option>
+            <option value="Sirg'ali">Sirg'ali filiali</option>
+          </select>
+          <select id="filterReqStatus" onchange="renderRequests()" class="px-3 py-2 border border-slate-300 rounded-xl text-sm bg-white">
+            <option value="ALL">Barcha statuslar</option>
+            <option value="pending">Kutilmoqda (Yangi)</option>
+            <option value="counter_proposed">Muqobil sana taklif qilingan</option>
+            <option value="approved">Tasdiqlangan (Imtihonga tayyor)</option>
+            <option value="completed">Yakunlangan (Baholangan)</option>
+          </select>
+          <select id="filterReqSubject" onchange="renderRequests()" class="px-3 py-2 border border-slate-300 rounded-xl text-sm bg-white">
+            <option value="ALL">Barcha fanlar</option>
+            <option value="Kimyo">Kimyo (40 savol)</option>
+            <option value="Biologiya">Biologiya (60 savol)</option>
+          </select>
+        </div>
+
+        <!-- Requests List -->
+        <div id="requestsList" class="grid gap-4"></div>
+      </section>
+
+      <!-- TAB 2: FINAL RESULTS -->
+      <section id="view-results" class="hidden space-y-6">
+        <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+          <div>
+            <h1 class="text-2xl font-bold text-slate-900">Yakuniy natijalar tahlili</h1>
+            <p class="text-sm text-slate-500 mt-0.5">Filiallar, fanlar va kitoblar kesimida LevelUp ko'rsatkichlari (O'tish bali: 65)</p>
+          </div>
+        </div>
+
+        <!-- Filters for Results -->
+        <div class="bg-white p-4 rounded-2xl border border-slate-200 grid sm:grid-cols-4 gap-3">
+          <div>
+            <label class="block text-xs font-semibold text-slate-500 mb-1">Filial</label>
+            <select id="filterResBranch" onchange="renderResults()" class="w-full px-3 py-2 border border-slate-300 rounded-xl text-sm bg-white">
+              <option value="ALL">Barcha filiallar</option>
+              <option value="Tinchlik">Tinchlik</option>
+              <option value="Nurafshon">Nurafshon</option>
+              <option value="Sirg'ali">Sirg'ali</option>
+            </select>
+          </div>
+          <div>
+            <label class="block text-xs font-semibold text-slate-500 mb-1">Fan</label>
+            <select id="filterResSubject" onchange="updateResBookFilter(); renderResults()" class="w-full px-3 py-2 border border-slate-300 rounded-xl text-sm bg-white">
+              <option value="ALL">Barcha fanlar</option>
+              <option value="Kimyo">Kimyo</option>
+              <option value="Biologiya">Biologiya</option>
+            </select>
+          </div>
+          <div>
+            <label class="block text-xs font-semibold text-slate-500 mb-1">Kitob / Bo'lim</label>
+            <select id="filterResBook" onchange="renderResults()" class="w-full px-3 py-2 border border-slate-300 rounded-xl text-sm bg-white">
+              <option value="ALL">Barcha kitoblar</option>
+            </select>
+          </div>
+          <div>
+            <label class="block text-xs font-semibold text-slate-500 mb-1">Guruh qidirish</label>
+            <input type="text" id="filterResGroup" oninput="renderResults()" placeholder="Masalan: 189-guruh"
+              class="w-full px-3 py-2 border border-slate-300 rounded-xl text-sm" />
+          </div>
+        </div>
+
+        <!-- KPI Summary Cards -->
+        <div id="resultsKpiGrid" class="grid grid-cols-2 lg:grid-cols-4 gap-4"></div>
+
+        <!-- Completed Exams Table/Cards -->
+        <div id="completedExamsList" class="space-y-4"></div>
+      </section>
+
+      <!-- TAB 3: GROUPS MASTER DATA -->
+      <section id="view-groups" class="hidden space-y-6">
+        <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+          <div>
+            <h1 class="text-2xl font-bold text-slate-900">Guruhlar bazasi va Umumiy tarix</h1>
+            <p class="text-sm text-slate-500 mt-0.5">Har bir guruhning Kimyo va Biologiya natijalarini bitta joyda ko'rish</p>
+          </div>
+          <button onclick="openGroupModal()" class="admin-only hidden bg-blue-600 hover:bg-blue-700 text-white font-semibold px-4 py-2.5 rounded-xl shadow-sm transition">
+            + Yangi guruh qo'shish
+          </button>
+        </div>
+
+        <div id="groupsGrid" class="grid md:grid-cols-2 lg:grid-cols-3 gap-4"></div>
+      </section>
+
+      <!-- TAB 4: USERS (ADMIN ONLY) -->
+      <section id="view-users" class="hidden space-y-6">
+        <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+          <div>
+            <h1 class="text-2xl font-bold text-slate-900">Foydalanuvchilar boshqaruvi</h1>
+            <p class="text-sm text-slate-500 mt-0.5">Ustozlar va Admin profillari, shaxsiy PIN-kodlar va biriktirilgan guruhlar</p>
+          </div>
+          <button onclick="openUserModal()" class="bg-blue-600 hover:bg-blue-700 text-white font-semibold px-4 py-2.5 rounded-xl shadow-sm transition">
+            + Yangi foydalanuvchi
+          </button>
+        </div>
+
+        <div class="bg-white rounded-2xl border border-slate-200 overflow-hidden">
+          <table class="w-full text-left text-sm">
+            <thead class="bg-slate-50 border-b border-slate-200 text-slate-600">
+              <tr>
+                <th class="p-4">F.I.Sh</th>
+                <th class="p-4">Rol / Fan</th>
+                <th class="p-4">Login & PIN</th>
+                <th class="p-4">Biriktirilgan guruhlar</th>
+                <th class="p-4 text-right">Amallar</th>
+              </tr>
+            </thead>
+            <tbody id="usersTableBody" class="divide-y divide-slate-100"></tbody>
+          </table>
+        </div>
+      </section>
+
+      <!-- TAB 5: SHIFTS & SETTINGS (ADMIN ONLY) -->
+      <section id="view-settings" class="hidden space-y-6">
+        <div class="flex items-center justify-between">
+          <div>
+            <h1 class="text-2xl font-bold text-slate-900">Smenalar sozlamalari</h1>
+            <p class="text-sm text-slate-500 mt-0.5">Imtihon o'tkazish vaqt oraliqlarini tahrirlash yoki yangi smena qo'shish</p>
+          </div>
+          <button onclick="openShiftModal()" class="bg-blue-600 hover:bg-blue-700 text-white font-semibold px-4 py-2.5 rounded-xl shadow-sm transition">
+            + Smena qo'shish
+          </button>
+        </div>
+
+        <div id="shiftsList" class="grid sm:grid-cols-2 lg:grid-cols-3 gap-4"></div>
+      </section>
+
+      <!-- TAB 6: AUDIT LOG (ADMIN ONLY) -->
+      <section id="view-audit" class="hidden space-y-6">
+        <div>
+          <h1 class="text-2xl font-bold text-slate-900">Audit Log (Harakatlar tarixi)</h1>
+          <p class="text-sm text-slate-500 mt-0.5">Kim, qachon so'rov yubordi, sanani o'zgartirdi yoki natija kiritdi</p>
+        </div>
+        <div class="bg-white rounded-2xl border border-slate-200 divide-y divide-slate-100" id="auditLogList"></div>
+      </section>
+
+    </main>
+  </div>
+
+  <!-- MODAL 1: NEW EXAM REQUEST -->
+  <div id="newRequestModal" class="hidden fixed inset-0 z-40 modal-backdrop flex items-center justify-center p-4">
+    <div class="bg-white rounded-2xl max-w-lg w-full p-6 shadow-xl max-h-[90vh] overflow-y-auto">
+      <div class="flex justify-between items-center pb-3 border-b border-slate-200">
+        <h3 class="text-lg font-bold text-slate-900">Yangi LevelUp imtihon so'rovi</h3>
+        <button onclick="closeModal('newRequestModal')" class="text-slate-400 hover:text-slate-700 text-xl">&times;</button>
+      </div>
+      <form id="newRequestForm" class="mt-4 space-y-4">
+        <div>
+          <label class="block text-sm font-medium text-slate-700 mb-1">Guruhni tanlang</label>
+          <select id="reqGroupSelect" required onchange="onReqGroupChange()" class="w-full px-3 py-2.5 border border-slate-300 rounded-xl bg-white"></select>
+          <p id="reqGroupBranchHint" class="text-xs text-blue-600 mt-1 font-medium"></p>
+        </div>
+
+        <div class="grid grid-cols-2 gap-3">
+          <div>
+            <label class="block text-sm font-medium text-slate-700 mb-1">Fan</label>
+            <select id="reqSubjectSelect" required onchange="onReqSubjectChange()" class="w-full px-3 py-2.5 border border-slate-300 rounded-xl bg-white">
+              <option value="Kimyo">Kimyo (40 savol)</option>
+              <option value="Biologiya">Biologiya (60 savol)</option>
+            </select>
+          </div>
+          <div>
+            <label class="block text-sm font-medium text-slate-700 mb-1">Kitob / Bo'lim</label>
+            <select id="reqBookSelect" required onchange="onReqBookChange()" class="w-full px-3 py-2.5 border border-slate-300 rounded-xl bg-white"></select>
+          </div>
+        </div>
+
+        <!-- Group Level (Appears when book is selected) -->
+        <div id="reqLevelContainer" class="bg-amber-50 border border-amber-200 p-3.5 rounded-xl space-y-2">
+          <label class="block text-sm font-semibold text-amber-900">Guruh darajasi (Test murakkabligi uchun)</label>
+          <select id="reqGroupLevel" required class="w-full px-3 py-2 border border-amber-300 rounded-xl bg-white text-sm">
+            <option value="Standart (O'rtacha)">Standart (O'rtacha)</option>
+            <option value="Boshlang'ich (Bazaviy)">Boshlang'ich (Bazaviy)</option>
+            <option value="Kuchli (Yuqori daraja)">Kuchli (Yuqori daraja)</option>
+            <option value="Olimpiada / Chuqurlashtirilgan">Olimpiada / Chuqurlashtirilgan</option>
+          </select>
+          <input type="text" id="reqLevelNote" placeholder="Qo'shimcha izoh (masalan: 15-mavzugacha tushsin)"
+            class="w-full px-3 py-2 border border-amber-300 rounded-xl bg-white text-sm" />
+        </div>
+
+        <div class="grid grid-cols-2 gap-3">
+          <div>
+            <label class="block text-sm font-medium text-slate-700 mb-1">Taklif etilayotgan sana</label>
+            <input type="date" id="reqDateInput" required onchange="checkCollisionWarning()"
+              class="w-full px-3 py-2.5 border border-slate-300 rounded-xl" />
+          </div>
+          <div>
+            <label class="block text-sm font-medium text-slate-700 mb-1">Smena</label>
+            <select id="reqShiftSelect" required onchange="checkCollisionWarning()"
+              class="w-full px-3 py-2.5 border border-slate-300 rounded-xl bg-white"></select>
+          </div>
+        </div>
+
+        <div id="collisionWarningBox" class="hidden text-xs bg-red-50 border border-red-200 text-red-700 p-3 rounded-xl"></div>
+
+        <div class="flex justify-end gap-2 pt-3 border-t border-slate-200">
+          <button type="button" onclick="closeModal('newRequestModal')" class="px-4 py-2 text-sm text-slate-600 hover:bg-slate-100 rounded-xl">Bekor qilish</button>
+          <button type="submit" class="px-5 py-2 text-sm font-semibold bg-blue-600 hover:bg-blue-700 text-white rounded-xl">So'rov yuborish</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- MODAL 2: ADMIN COUNTER PROPOSE DATE -->
+  <div id="counterModal" class="hidden fixed inset-0 z-40 modal-backdrop flex items-center justify-center p-4">
+    <div class="bg-white rounded-2xl max-w-md w-full p-6 shadow-xl">
+      <h3 class="text-lg font-bold text-slate-900">Boshqa sana / smena taklif qilish</h3>
+      <p id="counterModalInfo" class="text-xs text-slate-500 mt-1"></p>
+      <form id="counterForm" class="mt-4 space-y-4">
+        <input type="hidden" id="counterReqId" />
+        <div>
+          <label class="block text-sm font-medium text-slate-700 mb-1">Yangi sana</label>
+          <input type="date" id="counterDateInput" required class="w-full px-3 py-2.5 border border-slate-300 rounded-xl" />
+        </div>
+        <div>
+          <label class="block text-sm font-medium text-slate-700 mb-1">Yangi smena</label>
+          <select id="counterShiftSelect" required class="w-full px-3 py-2.5 border border-slate-300 rounded-xl bg-white"></select>
+        </div>
+        <div>
+          <label class="block text-sm font-medium text-slate-700 mb-1">Sabab / Izoh</label>
+          <input type="text" id="counterReasonInput" required placeholder="Masalan: Bu kuni xonalar band, ertasi kunga olsak"
+            class="w-full px-3 py-2.5 border border-slate-300 rounded-xl" />
+        </div>
+        <div class="flex justify-end gap-2 pt-3">
+          <button type="button" onclick="closeModal('counterModal')" class="px-4 py-2 text-sm text-slate-600 hover:bg-slate-100 rounded-xl">Yopish</button>
+          <button type="submit" class="px-4 py-2 text-sm font-semibold bg-amber-600 hover:bg-amber-700 text-white rounded-xl">Taklif yuborish</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- MODAL 3: ENTER / VIEW RESULTS & ZIPGRADE -->
+  <div id="resultsModal" class="hidden fixed inset-0 z-40 modal-backdrop flex items-center justify-center p-4">
+    <div class="bg-white rounded-2xl max-w-4xl w-full p-6 shadow-xl max-h-[92vh] flex flex-col">
+      <div class="flex justify-between items-start pb-3 border-b border-slate-200">
+        <div>
+          <h3 id="resModalTitle" class="text-lg font-bold text-slate-900"></h3>
+          <p id="resModalSubtitle" class="text-xs text-slate-500 mt-0.5"></p>
+        </div>
+        <button onclick="closeModal('resultsModal')" class="text-slate-400 hover:text-slate-700 text-2xl leading-none">&times;</button>
+      </div>
+
+      <!-- Admin ZipGrade Upload & Add Row Controls -->
+      <div id="adminResultControls" class="admin-only hidden mt-4 p-4 bg-slate-50 border border-slate-200 rounded-xl flex flex-wrap items-center justify-between gap-3">
+        <div class="flex flex-wrap items-center gap-2">
+          <label class="cursor-pointer inline-flex items-center gap-2 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-semibold px-3.5 py-2 rounded-xl transition">
+            <span>📂 ZipGrade CSV yuklash</span>
+            <input type="file" id="zipgradeFileInput" accept=".csv" onchange="handleZipGradeUpload(event)" class="hidden" />
+          </label>
+          <button type="button" onclick="downloadSampleZipGrade()" class="text-xs text-blue-600 hover:underline px-2 py-1">
+            Namuna CSV yuklab olish
+          </button>
+        </div>
+        <button type="button" onclick="addEmptyStudentRow()" class="text-xs font-semibold bg-white border border-slate-300 hover:bg-slate-100 px-3 py-2 rounded-xl">
+          + O'quvchi qo'shish
+        </button>
+      </div>
+
+      <!-- Students Table -->
+      <div class="mt-4 overflow-y-auto flex-1 border border-slate-200 rounded-xl">
+        <table class="w-full text-sm text-left">
+          <thead class="bg-slate-100 text-slate-700 sticky top-0">
+            <tr>
+              <th class="p-3 w-12">#</th>
+              <th class="p-3">O'quvchi F.I.Sh</th>
+              <th class="p-3 w-36" id="resModalMaxQHeader">To'g'ri javob</th>
+              <th class="p-3 w-28">Ball (100)</th>
+              <th class="p-3 w-36">Holat (≥65)</th>
+              <th class="p-3 w-12 admin-only hidden"></th>
+            </tr>
+          </thead>
+          <tbody id="resStudentsTableBody" class="divide-y divide-slate-100"></tbody>
+        </table>
+      </div>
+
+      <!-- Footer Summary & Actions -->
+      <div class="mt-4 pt-3 border-t border-slate-200 flex flex-wrap items-center justify-between gap-3">
+        <div id="resModalStats" class="text-sm font-medium text-slate-700"></div>
+        <div class="flex items-center gap-2">
+          <button type="button" onclick="exportExamPDF(currentExamIdForModal)" class="px-4 py-2 text-sm font-semibold bg-slate-800 hover:bg-slate-900 text-white rounded-xl">
+            📄 PDF yuklab olish
+          </button>
+          <button type="button" id="saveResultsBtn" onclick="saveExamResults()" class="admin-only hidden px-5 py-2 text-sm font-semibold bg-blue-600 hover:bg-blue-700 text-white rounded-xl">
+            Natijalarni saqlash
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- MODAL 4: GROUP HISTORY & EDIT -->
+  <div id="groupModal" class="hidden fixed inset-0 z-40 modal-backdrop flex items-center justify-center p-4">
+    <div class="bg-white rounded-2xl max-w-2xl w-full p-6 shadow-xl max-h-[90vh] overflow-y-auto">
+      <div class="flex justify-between items-center pb-3 border-b border-slate-200">
+        <h3 id="groupModalTitle" class="text-lg font-bold text-slate-900">Guruh ma'lumotlari</h3>
+        <button onclick="closeModal('groupModal')" class="text-slate-400 hover:text-slate-700 text-xl">&times;</button>
+      </div>
+      <div id="groupModalBody" class="mt-4 space-y-4"></div>
+    </div>
+  </div>
+
+  <!-- MODAL 5: USER ADD/EDIT -->
+  <div id="userModal" class="hidden fixed inset-0 z-40 modal-backdrop flex items-center justify-center p-4">
+    <div class="bg-white rounded-2xl max-w-md w-full p-6 shadow-xl">
+      <h3 id="userModalTitle" class="text-lg font-bold text-slate-900">Foydalanuvchi</h3>
+      <form id="userForm" class="mt-4 space-y-3">
+        <input type="hidden" id="editUserId" />
+        <div>
+          <label class="block text-xs font-semibold text-slate-600 mb-1">To'liq ism-familiya</label>
+          <input type="text" id="userFullName" required placeholder="Masalan: Sardor Rahimov" class="w-full px-3 py-2 border border-slate-300 rounded-xl text-sm" />
+        </div>
+        <div class="grid grid-cols-2 gap-3">
+          <div>
+            <label class="block text-xs font-semibold text-slate-600 mb-1">Login</label>
+            <input type="text" id="userLogin" required placeholder="sardor" class="w-full px-3 py-2 border border-slate-300 rounded-xl text-sm" />
+          </div>
+          <div>
+            <label class="block text-xs font-semibold text-slate-600 mb-1">PIN-kod</label>
+            <input type="text" id="userPin" required placeholder="4444" class="w-full px-3 py-2 border border-slate-300 rounded-xl text-sm" />
+          </div>
+        </div>
+        <div class="grid grid-cols-2 gap-3">
+          <div>
+            <label class="block text-xs font-semibold text-slate-600 mb-1">Rol</label>
+            <select id="userRole" onchange="toggleTeacherFields()" class="w-full px-3 py-2 border border-slate-300 rounded-xl text-sm bg-white">
+              <option value="teacher">Ustoz</option>
+              <option value="admin">Admin (O'quv bo'limi)</option>
+            </select>
+          </div>
+          <div id="userSubjectDiv">
+            <label class="block text-xs font-semibold text-slate-600 mb-1">Fani</label>
+            <select id="userSubject" class="w-full px-3 py-2 border border-slate-300 rounded-xl text-sm bg-white">
+              <option value="Kimyo">Kimyo</option>
+              <option value="Biologiya">Biologiya</option>
+            </select>
+          </div>
+        </div>
+        <div id="userGroupsDiv">
+          <label class="block text-xs font-semibold text-slate-600 mb-1">Biriktirilgan guruhlar (tanlang)</label>
+          <div id="userGroupsCheckboxes" class="max-h-32 overflow-y-auto border border-slate-200 rounded-xl p-2 space-y-1 text-sm"></div>
+        </div>
+        <div class="flex justify-end gap-2 pt-3">
+          <button type="button" onclick="closeModal('userModal')" class="px-4 py-2 text-sm text-slate-600 rounded-xl">Bekor qilish</button>
+          <button type="submit" class="px-4 py-2 text-sm font-semibold bg-blue-600 text-white rounded-xl">Saqlash</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- MODAL 6: SHIFT ADD/EDIT -->
+  <div id="shiftModal" class="hidden fixed inset-0 z-40 modal-backdrop flex items-center justify-center p-4">
+    <div class="bg-white rounded-2xl max-w-sm w-full p-6 shadow-xl">
+      <h3 class="text-lg font-bold text-slate-900">Smena ma'lumotlari</h3>
+      <form id="shiftForm" class="mt-4 space-y-3">
+        <input type="hidden" id="editShiftId" />
+        <div>
+          <label class="block text-xs font-semibold text-slate-600 mb-1">Smena nomi</label>
+          <input type="text" id="shiftName" required placeholder="Masalan: 1-smena" class="w-full px-3 py-2 border border-slate-300 rounded-xl text-sm" />
+        </div>
+        <div>
+          <label class="block text-xs font-semibold text-slate-600 mb-1">Vaqt oralig'i</label>
+          <input type="text" id="shiftTime" required placeholder="Masalan: 14:20 - 16:20" class="w-full px-3 py-2 border border-slate-300 rounded-xl text-sm" />
+        </div>
+        <div class="flex justify-end gap-2 pt-3">
+          <button type="button" onclick="closeModal('shiftModal')" class="px-4 py-2 text-sm text-slate-600 rounded-xl">Bekor qilish</button>
+          <button type="submit" class="px-4 py-2 text-sm font-semibold bg-blue-600 text-white rounded-xl">Saqlash</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- HIDDEN PRINT TEMPLATE FOR PDF -->
+  <div id="pdfPrintContainer" class="hidden"></div>
+
+  <!-- FIREBASE & APP LOGIC -->
+  <script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
+    import { getFirestore, doc, getDoc, setDoc, onSnapshot } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+
+    const firebaseConfig = {
+      apiKey: "AIzaSyBmwEdMU6r9h9nJf3nt0JWY_ZKIX6s4Li4",
+      authDomain: "colba-levelup.firebaseapp.com",
+      projectId: "colba-levelup",
+      storageBucket: "colba-levelup.firebasestorage.app",
+      messagingSenderId: "135717875519",
+      appId: "1:135717875519:web:2d57b42e6955fea8132d8a",
+      measurementId: "G-Q83WP6TJNL"
+    };
+
+    const app = initializeApp(firebaseConfig);
+    const db = getFirestore(app);
+    const STATE_DOC_REF = doc(db, "levelup_system", "main_state");
+
+    const BOOKS_BY_SUBJECT = {
+      "Kimyo": ["1-kitob", "2-kitob", "3-kitob", "4-kitob", "5-kitob"],
+      "Biologiya": ["Botanika", "Zoologiya", "Anatomiya", "Umumiy biologiya"]
+    };
+
+    const DEFAULT_STATE = {
+      users: [
+        { id: "u_admin", name: "O'quv bo'limi (Admin)", username: "admin", pin: "admin2026", role: "admin", subject: "", groups: [] },
+        { id: "u_alisher", name: "Alisher Karimov", username: "alisher", pin: "1111", role: "teacher", subject: "Kimyo", groups: ["189-guruh", "200-guruh"] },
+        { id: "u_malika", name: "Malika Rustamova", username: "malika", pin: "2222", role: "teacher", subject: "Biologiya", groups: ["189-guruh", "205-guruh"] },
+        { id: "u_jasur", name: "Jasur Toshmatov", username: "jasur", pin: "3333", role: "teacher", subject: "Kimyo", groups: ["210-guruh"] }
+      ],
+      groups: [
+        { id: "g_189", name: "189-guruh", branch: "Tinchlik" },
+        { id: "g_200", name: "200-guruh", branch: "Tinchlik" },
+        { id: "g_205", name: "205-guruh", branch: "Nurafshon" },
+        { id: "g_210", name: "210-guruh", branch: "Sirg'ali" }
+      ],
+      shifts: [
+        { id: "s_1", name: "1-smena", time: "14:20 - 16:20" },
+        { id: "s_2", name: "2-smena", time: "16:30 - 18:30" }
+      ],
+      requests: [
+        {
+          id: "req_demo_1",
+          groupName: "189-guruh",
+          branch: "Tinchlik",
+          subject: "Kimyo",
+          book: "2-kitob",
+          groupLevel: "Kuchli (Yuqori daraja)",
+          levelNote: "Eritmalar mavzusigacha",
+          teacherId: "u_alisher",
+          teacherName: "Alisher Karimov",
+          date: "2026-11-25",
+          shiftId: "s_1",
+          shiftLabel: "1-smena (14:20 - 16:20)",
+          status: "approved",
+          counterProposal: null,
+          results: []
+        },
+        {
+          id: "req_demo_2",
+          groupName: "205-guruh",
+          branch: "Nurafshon",
+          subject: "Biologiya",
+          book: "Botanika",
+          groupLevel: "Standart (O'rtacha)",
+          levelNote: "",
+          teacherId: "u_malika",
+          teacherName: "Malika Rustamova",
+          date: "2026-11-20",
+          shiftId: "s_2",
+          shiftLabel: "2-smena (16:30 - 18:30)",
+          status: "completed",
+          counterProposal: null,
+          results: [
+            { name: "Azizbek Qodirov", correct: 48, score: 80.0, passed: true },
+            { name: "Madina Sobirova", correct: 54, score: 90.0, passed: true },
+            { name: "Javohir Alimov", correct: 33, score: 55.0, passed: false },
+            { name: "Nilufar Xasanova", correct: 42, score: 70.0, passed: true }
+          ]
+        }
+      ],
+      auditLogs: [
+        { time: "2026-11-21 10:00", actor: "Tizim", action: "Colba LevelUp bulutli bazasi ishga tushirildi." }
+      ]
+    };
+
+    let appState = null;
+    let currentUser = null;
+    let currentTab = "requests";
+    window.currentExamIdForModal = null;
+    let tempResultsList = [];
+
+    // Sync with Firestore
+    async function initFirebaseSync() {
+      try {
+        const snap = await getDoc(STATE_DOC_REF);
+        if (!snap.exists()) {
+          await setDoc(STATE_DOC_REF, DEFAULT_STATE);
+        }
+        onSnapshot(STATE_DOC_REF, (docSnap) => {
+          if (docSnap.exists()) {
+            appState = docSnap.data();
+            document.getElementById("loadingOverlay").classList.add("hidden");
+            restoreSessionIfAny();
+            if (currentUser) {
+              // Refresh currentUser object from latest state
+              const freshUser = appState.users.find(u => u.id === currentUser.id);
+              if (freshUser) currentUser = freshUser;
+              renderAll();
+            } else {
+              document.getElementById("loginScreen").classList.remove("hidden");
+            }
+          }
+        }, (err) => {
+          console.error("Firestore error:", err);
+          alert("Firestore ulanish xatosi: Firebase konsolida 'Firestore Database' yoqilganini va 'Test mode' tanlanganini tekshiring. Xato: " + err.message);
+          document.getElementById("loadingOverlay").classList.add("hidden");
+        });
+      } catch (e) {
+        console.error(e);
+        alert("Bazaga ulanishda xatolik: " + e.message);
+        document.getElementById("loadingOverlay").classList.add("hidden");
+      }
+    }
+
+    async function saveState(logActionText = null) {
+      if (logActionText && currentUser) {
+        const now = new Date();
+        const ts = now.toISOString().slice(0, 16).replace("T", " ");
+        appState.auditLogs.unshift({ time: ts, actor: currentUser.name, action: logActionText });
+        if (appState.auditLogs.length > 100) appState.auditLogs.pop();
+      }
+      await setDoc(STATE_DOC_REF, appState);
+    }
+
+    function restoreSessionIfAny() {
+      const savedUserId = sessionStorage.getItem("colba_levelup_uid");
+      if (savedUserId && appState && !currentUser) {
+        const found = appState.users.find(u => u.id === savedUserId);
+        if (found) {
+          currentUser = found;
+          document.getElementById("loginScreen").classList.add("hidden");
+          document.getElementById("appContainer").classList.remove("hidden");
+          applyRoleUI();
+        }
+      }
+    }
+
+    // AUTH
+    document.getElementById("loginForm").addEventListener("submit", (e) => {
+      e.preventDefault();
+      const u = document.getElementById("loginUsername").value.trim().toLowerCase();
+      const p = document.getElementById("loginPin").value.trim();
+      attemptLogin(u, p);
+    });
+
+    window.quickLogin = (u, p) => attemptLogin(u, p);
+
+    function attemptLogin(username, pin) {
+      const errBox = document.getElementById("loginError");
+      const user = appState.users.find(x => x.username.toLowerCase() === username && x.pin === pin);
+      if (!user) {
+        errBox.textContent = "Login yoki PIN-kod noto'g'ri!";
+        errBox.classList.remove("hidden");
+        return;
+      }
+      errBox.classList.add("hidden");
+      currentUser = user;
+      sessionStorage.setItem("colba_levelup_uid", user.id);
+      document.getElementById("loginScreen").classList.add("hidden");
+      document.getElementById("appContainer").classList.remove("hidden");
+      applyRoleUI();
+      renderAll();
+    }
+
+    window.logout = () => {
+      currentUser = null;
+      sessionStorage.removeItem("colba_levelup_uid");
+      document.getElementById("appContainer").classList.add("hidden");
+      document.getElementById("loginScreen").classList.remove("hidden");
+      document.getElementById("loginForm").reset();
+    };
+
+    function applyRoleUI() {
+      document.getElementById("currentUserName").textContent = currentUser.name;
+      const isAdmin = currentUser.role === "admin";
+      document.getElementById("currentUserRoleBadge").textContent = isAdmin
+        ? "Admin • O'quv bo'limi"
+        : `Ustoz • ${currentUser.subject} (${(currentUser.groups || []).join(", ") || "Guruh yo'q"})`;
+
+      document.querySelectorAll(".admin-only").forEach(el => {
+        if (isAdmin) el.classList.remove("hidden");
+        else el.classList.add("hidden");
+      });
+
+      document.getElementById("requestsSubtitle").textContent = isAdmin
+        ? "Barcha filiallardagi imtihon so'rovlarini tasdiqlash, muqobil sana belgilash va natijalarni kiritish"
+        : "Faqat o'zingizga biriktirilgan guruhlar bo'yicha so'rov yuborish va tasdiqlangan sanalarni kuzatish";
+
+      if (!isAdmin && ["users", "settings", "audit"].includes(currentTab)) {
+        switchTab("requests");
+      }
+    }
+
+    window.switchTab = (tabName) => {
+      currentTab = tabName;
+      ["requests", "results", "groups", "users", "settings", "audit"].forEach(t => {
+        const view = document.getElementById(`view-${t}`);
+        const btn = document.getElementById(`tab-${t}`);
+        if (view) view.classList.toggle("hidden", t !== tabName);
+        if (btn) {
+          if (t === tabName) {
+            btn.classList.add("tab-active");
+            btn.classList.remove("text-slate-600");
+          } else {
+            btn.classList.remove("tab-active");
+            btn.classList.add("text-slate-600");
+          }
+        }
+      });
+      renderAll();
+    };
+
+    function renderAll() {
+      if (!appState || !currentUser) return;
+      renderRequests();
+      updateResBookFilter();
+      renderResults();
+      renderGroups();
+      if (currentUser.role === "admin") {
+        renderUsers();
+        renderShifts();
+        renderAuditLogs();
+      }
+    }
+
+    // TAB 1: REQUESTS
+    window.renderRequests = () => {
+      const listEl = document.getElementById("requestsList");
+      const branchF = document.getElementById("filterReqBranch").value;
+      const statusF = document.getElementById("filterReqStatus").value;
+      const subjectF = document.getElementById("filterReqSubject").value;
+      const isAdmin = currentUser.role === "admin";
+
+      let items = [...(appState.requests || [])];
+
+      // Strict Role Filter: Teacher sees ONLY their own groups / requests
+      if (!isAdmin) {
+        const allowedGroups = currentUser.groups || [];
+        items = items.filter(r => allowedGroups.includes(r.groupName) || r.teacherId === currentUser.id);
+      }
+
+      if (branchF !== "ALL") items = items.filter(r => r.branch === branchF);
+      if (statusF !== "ALL") items = items.filter(r => r.status === statusF);
+      if (subjectF !== "ALL") items = items.filter(r => r.subject === subjectF);
+
+      items.sort((a, b) => b.date.localeCompare(a.date));
+
+      if (items.length === 0) {
+        listEl.innerHTML = `<div class="bg-white p-10 rounded-2xl border border-slate-200 text-center text-slate-500">Hozircha mos imtihon so'rovlari topilmadi.</div>`;
+        return;
+      }
+
+      const statusBadges = {
+        pending: `<span class="px-2.5 py-1 rounded-full text-xs font-semibold bg-amber-100 text-amber-800">⏳ Kutilmoqda</span>`,
+        counter_proposed: `<span class="px-2.5 py-1 rounded-full text-xs font-semibold bg-purple-100 text-purple-800">🔄 Muqobil sana taklif qilindi</span>`,
+        approved: `<span class="px-2.5 py-1 rounded-full text-xs font-semibold bg-blue-100 text-blue-800">✅ Tasdiqlangan</span>`,
+        completed: `<span class="px-2.5 py-1 rounded-full text-xs font-semibold bg-emerald-100 text-emerald-800">📊 Yakunlangan</span>`
+      };
+
+      listEl.innerHTML = items.map(req => {
+        const maxQ = req.subject === "Kimyo" ? 40 : 60;
+        let actionButtons = "";
+
+        if (isAdmin) {
+          if (req.status === "pending" || req.status === "counter_proposed") {
+            actionButtons += `<button onclick="approveRequest('${req.id}')" class="px-3.5 py-2 text-xs font-semibold bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl">✓ Tasdiqlash</button>`;
+            actionButtons += `<button onclick="openCounterModal('${req.id}')" class="px-3.5 py-2 text-xs font-semibold bg-amber-500 hover:bg-amber-600 text-white rounded-xl">Boshqa sana taklif qilish</button>`;
+          }
+          if (req.status === "approved" || req.status === "completed") {
+            actionButtons += `<button onclick="openResultsModal('${req.id}')" class="px-3.5 py-2 text-xs font-semibold bg-blue-600 hover:bg-blue-700 text-white rounded-xl">${req.status === 'completed' ? 'Natijalarni tahrirlash / ZipGrade' : 'Natija kiritish / ZipGrade'}</button>`;
+          }
+          actionButtons += `<button onclick="deleteRequest('${req.id}')" class="px-2.5 py-2 text-xs text-red-600 hover:bg-red-50 rounded-xl" title="O'chirish">🗑</button>`;
+        } else {
+          // Teacher actions
+          if (req.status === "counter_proposed" && req.counterProposal) {
+            actionButtons += `<button onclick="acceptCounterProposal('${req.id}')" class="px-3.5 py-2 text-xs font-semibold bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl">✓ Taklifni qabul qilish</button>`;
+          }
+          if (req.status === "completed") {
+            actionButtons += `<button onclick="openResultsModal('${req.id}')" class="px-3.5 py-2 text-xs font-semibold bg-slate-800 hover:bg-slate-900 text-white rounded-xl">Natijalarni ko'rish & PDF</button>`;
+          }
+        }
+
+        const counterBox = (req.status === "counter_proposed" && req.counterProposal) ? `
+          <div class="mt-3 p-3 bg-purple-50 border border-purple-200 rounded-xl text-xs text-purple-900">
+            <span class="font-bold">O'quv bo'limi taklifi:</span> ${req.counterProposal.date} • ${req.counterProposal.shiftLabel}
+            <div class="text-purple-700 mt-0.5">Izoh: ${req.counterProposal.reason}</div>
+          </div>
+        ` : "";
+
+        return `
+          <div class="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm hover:border-slate-300 transition">
+            <div class="flex flex-col md:flex-row md:items-center justify-between gap-4">
+              <div class="space-y-1.5">
+                <div class="flex flex-wrap items-center gap-2">
+                  <span class="text-lg font-extrabold text-slate-900">${req.groupName}</span>
+                  <span class="px-2.5 py-0.5 rounded-lg text-xs font-semibold bg-slate-100 text-slate-700">📍 ${req.branch}</span>
+                  <span class="px-2.5 py-0.5 rounded-lg text-xs font-semibold ${req.subject === 'Kimyo' ? 'bg-indigo-50 text-indigo-700' : 'bg-teal-50 text-teal-700'}">${req.subject} (${maxQ} savol)</span>
+                  <span class="px-2.5 py-0.5 rounded-lg text-xs font-semibold bg-slate-800 text-white">📘 ${req.book}</span>
+                  ${statusBadges[req.status] || ""}
+                </div>
+                <div class="text-sm text-slate-600 flex flex-wrap gap-x-4 gap-y-1">
+                  <span>📅 <strong>${req.date}</strong> (${req.shiftLabel})</span>
+                  <span>👨‍🏫 Ustoz: <strong>${req.teacherName}</strong></span>
+                  <span>🎯 Daraja: <strong>${req.groupLevel || "Standart"}</strong> ${req.levelNote ? `(${req.levelNote})` : ""}</span>
+                </div>
+                ${counterBox}
+              </div>
+              <div class="flex flex-wrap items-center gap-2 shrink-0">
+                ${actionButtons}
+              </div>
+            </div>
+          </div>
+        `;
+      }).join("");
+    };
+
+    // NEW REQUEST MODAL LOGIC
+    window.openNewRequestModal = () => {
+      const isAdmin = currentUser.role === "admin";
+      const groupSelect = document.getElementById("reqGroupSelect");
+      const availableGroups = isAdmin
+        ? appState.groups
+        : appState.groups.filter(g => (currentUser.groups || []).includes(g.name));
+
+      if (availableGroups.length === 0) {
+        alert("Sizga biriktirilgan guruhlar mavjud emas. O'quv bo'limiga murojaat qiling.");
+        return;
+      }
+
+      groupSelect.innerHTML = availableGroups.map(g => `<option value="${g.name}">${g.name} (${g.branch})</option>`).join("");
+
+      const subjSelect = document.getElementById("reqSubjectSelect");
+      if (!isAdmin && currentUser.subject) {
+        subjSelect.value = currentUser.subject;
+        subjSelect.disabled = true;
+      } else {
+        subjSelect.disabled = false;
+      }
+
+      const shiftSelect = document.getElementById("reqShiftSelect");
+      shiftSelect.innerHTML = appState.shifts.map(s => `<option value="${s.id}">${s.name} (${s.time})</option>`).join("");
+
+      document.getElementById("reqDateInput").value = new Date().toISOString().split("T")[0];
+      onReqGroupChange();
+      onReqSubjectChange();
+      checkCollisionWarning();
+      document.getElementById("newRequestModal").classList.remove("hidden");
+    };
+
+    window.onReqGroupChange = () => {
+      const gName = document.getElementById("reqGroupSelect").value;
+      const g = appState.groups.find(x => x.name === gName);
+      document.getElementById("reqGroupBranchHint").textContent = g ? `Filial: ${g.branch} filiali` : "";
+      checkCollisionWarning();
+    };
+
+    window.onReqSubjectChange = () => {
+      const subj = document.getElementById("reqSubjectSelect").value;
+      const books = BOOKS_BY_SUBJECT[subj] || [];
+      document.getElementById("reqBookSelect").innerHTML = books.map(b => `<option value="${b}">${b}</option>`).join("");
+      onReqBookChange();
+    };
+
+    window.onReqBookChange = () => {
+      const book = document.getElementById("reqBookSelect").value;
+      document.getElementById("reqLevelContainer").classList.toggle("hidden", !book);
+    };
+
+    window.checkCollisionWarning = () => {
+      const gName = document.getElementById("reqGroupSelect").value;
+      const g = appState.groups.find(x => x.name === gName);
+      const date = document.getElementById("reqDateInput").value;
+      const shiftId = document.getElementById("reqShiftSelect").value;
+      const warnBox = document.getElementById("collisionWarningBox");
+
+      if (!g || !date || !shiftId) {
+        warnBox.classList.add("hidden");
+        return;
+      }
+
+      const sameSlot = appState.requests.filter(r => r.branch === g.branch && r.date === date && r.shiftId === shiftId && r.status !== "rejected");
+      if (sameSlot.length > 0) {
+        warnBox.innerHTML = `⚠️ Diqqat: <strong>${g.branch}</strong> filialida ushbu sana va smenada allaqachon <strong>${sameSlot.length} ta guruh</strong> (${sameSlot.map(x => x.groupName).join(", ")}) ro'yxatdan o'tgan.`;
+        warnBox.classList.remove("hidden");
+      } else {
+        warnBox.classList.add("hidden");
+      }
+    };
+
+    document.getElementById("newRequestForm").addEventListener("submit", async (e) => {
+      e.preventDefault();
+      const gName = document.getElementById("reqGroupSelect").value;
+      const g = appState.groups.find(x => x.name === gName);
+      const subject = document.getElementById("reqSubjectSelect").value;
+      const book = document.getElementById("reqBookSelect").value;
+      const groupLevel = document.getElementById("reqGroupLevel").value;
+      const levelNote = document.getElementById("reqLevelNote").value.trim();
+      const date = document.getElementById("reqDateInput").value;
+      const shiftId = document.getElementById("reqShiftSelect").value;
+      const shiftObj = appState.shifts.find(s => s.id === shiftId);
+
+      const newReq = {
+        id: "req_" + Date.now(),
+        groupName: gName,
+        branch: g ? g.branch : "Tinchlik",
+        subject,
+        book,
+        groupLevel,
+        levelNote,
+        teacherId: currentUser.id,
+        teacherName: currentUser.name,
+        date,
+        shiftId,
+        shiftLabel: shiftObj ? `${shiftObj.name} (${shiftObj.time})` : "",
+        status: currentUser.role === "admin" ? "approved" : "pending",
+        counterProposal: null,
+        results: []
+      };
+
+      appState.requests.unshift(newReq);
+      closeModal("newRequestModal");
+      await saveState(`${gName} (${subject} - ${book}) uchun ${date} sanasiga imtihon so'rovi yaratildi.`);
+    });
+
+    // ADMIN & TEACHER WORKFLOW ACTIONS
+    window.approveRequest = async (id) => {
+      const req = appState.requests.find(r => r.id === id);
+      if (!req) return;
+      req.status = "approved";
+      req.counterProposal = null;
+      await saveState(`${req.groupName} (${req.subject}) imtihon sanasi (${req.date}) tasdiqlandi.`);
+    };
+
+    window.openCounterModal = (id) => {
+      const req = appState.requests.find(r => r.id === id);
+      if (!req) return;
+      document.getElementById("counterReqId").value = id;
+      document.getElementById("counterModalInfo").textContent = `${req.groupName} • Ustoz so'ragan sana: ${req.date} (${req.shiftLabel})`;
+      document.getElementById("counterDateInput").value = req.date;
+      document.getElementById("counterShiftSelect").innerHTML = appState.shifts.map(s => `<option value="${s.id}">${s.name} (${s.time})</option>`).join("");
+      document.getElementById("counterReasonInput").value = "";
+      document.getElementById("counterModal").classList.remove("hidden");
+    };
+
+    document.getElementById("counterForm").addEventListener("submit", async (e) => {
+      e.preventDefault();
+      const id = document.getElementById("counterReqId").value;
+      const req = appState.requests.find(r => r.id === id);
+      if (!req) return;
+
+      const newDate = document.getElementById("counterDateInput").value;
+      const newShiftId = document.getElementById("counterShiftSelect").value;
+      const shiftObj = appState.shifts.find(s => s.id === newShiftId);
+      const reason = document.getElementById("counterReasonInput").value.trim();
+
+      req.status = "counter_proposed";
+      req.counterProposal = {
+        date: newDate,
+        shiftId: newShiftId,
+        shiftLabel: shiftObj ? `${shiftObj.name} (${shiftObj.time})` : "",
+        reason
+      };
+      closeModal("counterModal");
+      await saveState(`${req.groupName} uchun muqobil sana taklif qilindi: ${newDate}.`);
+    });
+
+    window.acceptCounterProposal = async (id) => {
+      const req = appState.requests.find(r => r.id === id);
+      if (!req || !req.counterProposal) return;
+      req.date = req.counterProposal.date;
+      req.shiftId = req.counterProposal.shiftId;
+      req.shiftLabel = req.counterProposal.shiftLabel;
+      req.status = "approved";
+      req.counterProposal = null;
+      await saveState(`Ustoz ${req.groupName} uchun taklif qilingan ${req.date} sanasini qabul qildi.`);
+    };
+
+    window.deleteRequest = async (id) => {
+      if (!confirm("Ushbu imtihon yozuvini o'chirishga ishonchingiz komilmi?")) return;
+      const req = appState.requests.find(r => r.id === id);
+      appState.requests = appState.requests.filter(r => r.id !== id);
+      await saveState(`${req ? req.groupName : id} imtihon so'rovi o'chirildi.`);
+    };
+
+    // RESULTS & ZIPGRADE MODAL
+    window.openResultsModal = (reqId) => {
+      const req = appState.requests.find(r => r.id === reqId);
+      if (!req) return;
+      window.currentExamIdForModal = reqId;
+      const maxQ = req.subject === "Kimyo" ? 40 : 60;
+
+      document.getElementById("resModalTitle").textContent = `${req.groupName} — ${req.subject} (${req.book})`;
+      document.getElementById("resModalSubtitle").textContent = `Filial: ${req.branch} • Sana: ${req.date} • Ustoz: ${req.teacherName}`;
+      document.getElementById("resModalMaxQHeader").textContent = `To'g'ri (max ${maxQ})`;
+
+      tempResultsList = JSON.parse(JSON.stringify(req.results || []));
+      if (tempResultsList.length === 0 && currentUser.role === "admin") {
+        tempResultsList.push({ name: "", correct: 0, score: 0, passed: false });
+      }
+      renderResultsModalTable();
+      document.getElementById("resultsModal").classList.remove("hidden");
+    };
+
+    function renderResultsModalTable() {
+      const req = appState.requests.find(r => r.id === window.currentExamIdForModal);
+      const maxQ = req.subject === "Kimyo" ? 40 : 60;
+      const isAdmin = currentUser.role === "admin";
+      const tbody = document.getElementById("resStudentsTableBody");
+
+      if (tempResultsList.length === 0) {
+        tbody.innerHTML = `<tr><td colspan="6" class="p-6 text-center text-slate-400">Hali natijalar kiritilmagan.</td></tr>`;
+        document.getElementById("resModalStats").textContent = "";
+        return;
+      }
+
+      tbody.innerHTML = tempResultsList.map((st, idx) => {
+        const score = Number(((st.correct / maxQ) * 100).toFixed(1));
+        const passed = score >= 65;
+        st.score = score;
+        st.passed = passed;
+
+        if (isAdmin) {
+          return `
+            <tr>
+              <td class="p-2.5 text-slate-500">${idx + 1}</td>
+              <td class="p-2.5">
+                <input type="text" value="${st.name}" onchange="updateStudentRow(${idx}, 'name', this.value)"
+                  placeholder="O'quvchi ism-familiyasi" class="w-full px-2.5 py-1.5 border border-slate-300 rounded-lg" />
+              </td>
+              <td class="p-2.5">
+                <input type="number" min="0" max="${maxQ}" value="${st.correct}" onchange="updateStudentRow(${idx}, 'correct', this.value)"
+                  class="w-24 px-2.5 py-1.5 border border-slate-300 rounded-lg font-semibold" />
+              </td>
+              <td class="p-2.5 font-bold text-slate-800">${score}%</td>
+              <td class="p-2.5">
+                <span class="px-2.5 py-1 rounded-full text-xs font-bold ${passed ? 'bg-emerald-100 text-emerald-700' : 'bg-red-100 text-red-700'}">
+                  ${passed ? "O'tdi" : "O'ta olmadi"}
+                </span>
+              </td>
+              <td class="p-2.5 text-right">
+                <button onclick="removeStudentRow(${idx})" class="text-red-500 hover:text-red-700 font-bold px-2">&times;</button>
+              </td>
+            </tr>
+          `;
+        } else {
+          return `
+            <tr>
+              <td class="p-3 text-slate-500">${idx + 1}</td>
+              <td class="p-3 font-medium text-slate-800">${st.name}</td>
+              <td class="p-3">${st.correct} / ${maxQ}</td>
+              <td class="p-3 font-bold">${score}%</td>
+              <td class="p-3">
+                <span class="px-2.5 py-1 rounded-full text-xs font-bold ${passed ? 'bg-emerald-100 text-emerald-700' : 'bg-red-100 text-red-700'}">
+                  ${passed ? "O'tdi" : "O'ta olmadi"}
+                </span>
+              </td>
+            </tr>
+          `;
+        }
+      }).join("");
+
+      const passedCount = tempResultsList.filter(s => s.passed).length;
+      const avg = (tempResultsList.reduce((acc, s) => acc + s.score, 0) / tempResultsList.length).toFixed(1);
+      document.getElementById("resModalStats").innerHTML = `Jami: <strong>${tempResultsList.length}</strong> | O'tdi: <strong class="text-emerald-600">${passedCount}</strong> | O'rtacha ball: <strong>${avg}</strong>`;
+    }
+
+    window.updateStudentRow = (idx, field, val) => {
+      const req = appState.requests.find(r => r.id === window.currentExamIdForModal);
+      const maxQ = req.subject === "Kimyo" ? 40 : 60;
+      if (field === "name") tempResultsList[idx].name = val.trim();
+      if (field === "correct") {
+        let num = parseInt(val, 10) || 0;
+        if (num < 0) num = 0;
+        if (num > maxQ) num = maxQ;
+        tempResultsList[idx].correct = num;
+      }
+      renderResultsModalTable();
+    };
+
+    window.addEmptyStudentRow = () => {
+      tempResultsList.push({ name: "", correct: 0, score: 0, passed: false });
+      renderResultsModalTable();
+    };
+
+    window.removeStudentRow = (idx) => {
+      tempResultsList.splice(idx, 1);
+      renderResultsModalTable();
+    };
+
+    window.saveExamResults = async () => {
+      const req = appState.requests.find(r => r.id === window.currentExamIdForModal);
+      if (!req) return;
+      const cleaned = tempResultsList.filter(s => s.name.trim() !== "");
+      if (cleaned.length === 0) {
+        alert("Kamida bitta o'quvchi ma'lumotini kiriting.");
+        return;
+      }
+      req.results = cleaned;
+      req.status = "completed";
+      closeModal("resultsModal");
+      await saveState(`${req.groupName} (${req.subject} - ${req.book}) imtihon natijalari saqlandi (${cleaned.length} nafar o'quvchi).`);
+    };
+
+    // ZIPGRADE CSV PARSER
+    window.handleZipGradeUpload = (event) => {
+      const file = event.target.files[0];
+      if (!file) return;
+      const req = appState.requests.find(r => r.id === window.currentExamIdForModal);
+      const maxQ = req.subject === "Kimyo" ? 40 : 60;
+
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        const text = e.target.result;
+        const lines = text.split(/?
+/).filter(l => l.trim() !== "");
+        if (lines.length < 2) {
+          alert("CSV fayl bo'sh yoki noto'g'ri formatda.");
+          return;
+        }
+        const headers = lines[0].split(",").map(h => h.replace(/"/g, "").trim().toLowerCase());
+        const firstIdx = headers.findIndex(h => h.includes("first") || h === "ism");
+        const lastIdx = headers.findIndex(h => h.includes("last") || h === "familiya");
+        const fullIdx = headers.findIndex(h => h === "name" || h === "student" || h === "fish");
+        const correctIdx = headers.findIndex(h => h.includes("num correct") || h.includes("earned") || h === "correct" || h === "ball");
+
+        if (correctIdx === -1) {
+          alert("CSV faylda 'Num Correct' yoki 'Earned Points' ustuni topilmadi.");
+          return;
+        }
+
+        const parsed = [];
+        for (let i = 1; i < lines.length; i++) {
+          const cols = lines[i].split(",").map(c => c.replace(/"/g, "").trim());
+          if (!cols[correctIdx]) continue;
+          let fullName = "";
+          if (fullIdx !== -1 && cols[fullIdx]) fullName = cols[fullIdx];
+          else fullName = `${cols[firstIdx] || ""} ${cols[lastIdx] || ""}`.trim();
+          if (!fullName) continue;
+
+          let correct = Math.round(parseFloat(cols[correctIdx]) || 0);
+          if (correct > maxQ) correct = maxQ;
+          const score = Number(((correct / maxQ) * 100).toFixed(1));
+          parsed.push({ name: fullName, correct, score, passed: score >= 65 });
+        }
+
+        if (parsed.length === 0) {
+          alert("Fayldan o'quvchilar ma'lumoti o'qilmadi.");
+          return;
+        }
+        tempResultsList = parsed;
+        renderResultsModalTable();
+        event.target.value = "";
+      };
+      reader.readAsText(file);
+    };
+
+    window.downloadSampleZipGrade = () => {
+      const csv = "First Name,Last Name,Num Correct
+Sardor,Aliyev,34
+Dilnoza,Karimova,28
+Behzod,Tursunov,21
+Zarina,Umarova,38
+";
+      const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
+      const link = document.createElement("a");
+      link.href = URL.createObjectURL(blob);
+      link.download = "zipgrade_namuna.csv";
+      link.click();
+    };
+
+    // TAB 2: FINAL RESULTS ANALYTICS
+    window.updateResBookFilter = () => {
+      const subj = document.getElementById("filterResSubject").value;
+      const bookSelect = document.getElementById("filterResBook");
+      let options = `<option value="ALL">Barcha kitoblar</option>`;
+      const list = subj === "ALL"
+        ? [...BOOKS_BY_SUBJECT["Kimyo"], ...BOOKS_BY_SUBJECT["Biologiya"]]
+        : (BOOKS_BY_SUBJECT[subj] || []);
+      list.forEach(b => { options += `<option value="${b}">${b}</option>`; });
+      bookSelect.innerHTML = options;
+    };
+
+    window.renderResults = () => {
+      const branchF = document.getElementById("filterResBranch").value;
+      const subjF = document.getElementById("filterResSubject").value;
+      const bookF = document.getElementById("filterResBook").value;
+      const groupQ = document.getElementById("filterResGroup").value.trim().toLowerCase();
+      const isAdmin = currentUser.role === "admin";
+
+      let completed = (appState.requests || []).filter(r => r.status === "completed");
+      if (!isAdmin) {
+        const allowed = currentUser.groups || [];
+        completed = completed.filter(r => allowed.includes(r.groupName) || r.teacherId === currentUser.id);
+      }
+      if (branchF !== "ALL") completed = completed.filter(r => r.branch === branchF);
+      if (subjF !== "ALL") completed = completed.filter(r => r.subject === subjF);
+      if (bookF !== "ALL") completed = completed.filter(r => r.book === bookF);
+      if (groupQ) completed = completed.filter(r => r.groupName.toLowerCase().includes(groupQ));
+
+      let totalStudents = 0, passedStudents = 0, sumScores = 0;
+      completed.forEach(ex => {
+        (ex.results || []).forEach(st => {
+          totalStudents++;
+          if (st.passed) passedStudents++;
+          sumScores += st.score;
+        });
+      });
+
+      const passRate = totalStudents ? ((passedStudents / totalStudents) * 100).toFixed(1) : 0;
+      const avgScore = totalStudents ? (sumScores / totalStudents).toFixed(1) : 0;
+
+      document.getElementById("resultsKpiGrid").innerHTML = `
+        <div class="bg-white p-4 rounded-2xl border border-slate-200">
+          <div class="text-xs text-slate-500">Yakunlangan imtihonlar</div>
+          <div class="text-2xl font-extrabold text-slate-900 mt-1">${completed.length} ta</div>
+        </div>
+        <div class="bg-white p-4 rounded-2xl border border-slate-200">
+          <div class="text-xs text-slate-500">Qatnashgan o'quvchilar</div>
+          <div class="text-2xl font-extrabold text-slate-900 mt-1">${totalStudents} nafar</div>
+        </div>
+        <div class="bg-white p-4 rounded-2xl border border-slate-200">
+          <div class="text-xs text-slate-500">O'tish ko'rsatkichi (≥65)</div>
+          <div class="text-2xl font-extrabold text-emerald-600 mt-1">${passRate}% <span class="text-xs font-normal text-slate-500">(${passedStudents}/${totalStudents})</span></div>
+        </div>
+        <div class="bg-white p-4 rounded-2xl border border-slate-200">
+          <div class="text-xs text-slate-500">O'rtacha ball</div>
+          <div class="text-2xl font-extrabold text-blue-600 mt-1">${avgScore} ball</div>
+        </div>
+      `;
+
+      const listEl = document.getElementById("completedExamsList");
+      if (completed.length === 0) {
+        listEl.innerHTML = `<div class="bg-white p-8 rounded-2xl border border-slate-200 text-center text-slate-500">Tanlangan filtr bo'yicha yakunlangan natijalar topilmadi.</div>`;
+        return;
+      }
+
+      listEl.innerHTML = completed.map(ex => {
+        const res = ex.results || [];
+        const pCount = res.filter(x => x.passed).length;
+        const avg = res.length ? (res.reduce((a, b) => a + b.score, 0) / res.length).toFixed(1) : 0;
+        return `
+          <div class="bg-white p-5 rounded-2xl border border-slate-200 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+            <div>
+              <div class="flex flex-wrap items-center gap-2">
+                <span class="text-lg font-bold text-slate-900">${ex.groupName}</span>
+                <span class="px-2.5 py-0.5 rounded-lg text-xs font-semibold bg-slate-100 text-slate-700">📍 ${ex.branch}</span>
+                <span class="px-2.5 py-0.5 rounded-lg text-xs font-semibold bg-blue-50 text-blue-700">${ex.subject} • ${ex.book}</span>
+              </div>
+              <div class="text-xs text-slate-500 mt-1">
+                Sana: <strong>${ex.date}</strong> • Ustoz: <strong>${ex.teacherName}</strong> • O'tdi: <strong class="text-emerald-600">${pCount}/${res.length}</strong> • O'rtacha: <strong>${avg} ball</strong>
+              </div>
+            </div>
+            <div class="flex items-center gap-2">
+              <button onclick="openResultsModal('${ex.id}')" class="px-3.5 py-2 text-xs font-semibold border border-slate-300 hover:bg-slate-50 rounded-xl">Batafsil jadval</button>
+              <button onclick="exportExamPDF('${ex.id}')" class="px-3.5 py-2 text-xs font-semibold bg-slate-900 hover:bg-slate-800 text-white rounded-xl">📄 PDF</button>
+            </div>
+          </div>
+        `;
+      }).join("");
+    };
+
+    // PDF EXPORT
+    window.exportExamPDF = (reqId) => {
+      const ex = appState.requests.find(r => r.id === reqId);
+      if (!ex) return;
+      const maxQ = ex.subject === "Kimyo" ? 40 : 60;
+      const res = ex.results || [];
+      const pCount = res.filter(x => x.passed).length;
+      const avg = res.length ? (res.reduce((a, b) => a + b.score, 0) / res.length).toFixed(1) : 0;
+
+      const container = document.getElementById("pdfPrintContainer");
+      container.classList.remove("hidden");
+      container.innerHTML = `
+        <div style="padding: 28px; font-family: Arial, sans-serif; color: #0f172a;">
+          <div style="display:flex; justify-content:space-between; align-items:center; border-bottom: 2px solid #2563eb; padding-bottom: 12px;">
+            <div>
+              <h1 style="margin:0; font-size:22px; color:#1e3a8a;">COLBA TA'LIM MARKAZI</h1>
+              <p style="margin:4px 0 0; font-size:13px; color:#475569;">LevelUp Imtihon Natijalari Rasmiy Qaydnomasi</p>
+            </div>
+            <div style="text-align:right; font-size:12px; color:#475569;">
+              <div><strong>Sana:</strong> ${ex.date}</div>
+              <div><strong>Filial:</strong> ${ex.branch}</div>
+            </div>
+          </div>
+
+          <div style="margin-top:16px; background:#f8fafc; padding:12px; border-radius:8px; font-size:13px; display:flex; justify-content:space-between;">
+            <div><strong>Guruh:</strong> ${ex.groupName}</div>
+            <div><strong>Fan:</strong> ${ex.subject} (${ex.book})</div>
+            <div><strong>Ustoz:</strong> ${ex.teacherName}</div>
+            <div><strong>O'tish bali:</strong> 65 ball</div>
+          </div>
+
+          <table style="width:100%; border-collapse:collapse; margin-top:18px; font-size:12px;">
+            <thead>
+              <tr style="background:#1e293b; color:white;">
+                <th style="padding:8px; border:1px solid #cbd5e1; text-align:left;">№</th>
+                <th style="padding:8px; border:1px solid #cbd5e1; text-align:left;">O'quvchi F.I.Sh</th>
+                <th style="padding:8px; border:1px solid #cbd5e1; text-align:center;">To'g'ri (${maxQ})</th>
+                <th style="padding:8px; border:1px solid #cbd5e1; text-align:center;">Ball (100)</th>
+                <th style="padding:8px; border:1px solid #cbd5e1; text-align:center;">Natija</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${res.map((st, i) => `
+                <tr style="background:${i % 2 === 0 ? '#ffffff' : '#f8fafc'};">
+                  <td style="padding:7px 8px; border:1px solid #cbd5e1;">${i + 1}</td>
+                  <td style="padding:7px 8px; border:1px solid #cbd5e1; font-weight:bold;">${st.name}</td>
+                  <td style="padding:7px 8px; border:1px solid #cbd5e1; text-align:center;">${st.correct}</td>
+                  <td style="padding:7px 8px; border:1px solid #cbd5e1; text-align:center; font-weight:bold;">${st.score}</td>
+                  <td style="padding:7px 8px; border:1px solid #cbd5e1; text-align:center; font-weight:bold; color:${st.passed ? '#059669' : '#dc2626'};">
+                    ${st.passed ? "O'TDI" : "O'TA OLMADI"}
+                  </td>
+                </tr>
+              `).join("")}
+            </tbody>
+          </table>
+
+          <div style="margin-top:16px; font-size:13px; display:flex; justify-content:space-between; border-top:1px solid #cbd5e1; padding-top:10px;">
+            <div><strong>Jami qatnashdi:</strong> ${res.length} nafar</div>
+            <div><strong>Muvaffaqiyatli o'tdi:</strong> ${pCount} nafar</div>
+            <div><strong>Guruh o'rtacha bali:</strong> ${avg} ball</div>
+          </div>
+        </div>
+      `;
+
+      html2pdf().set({
+        margin: 10,
+        filename: `LevelUp_${ex.groupName}_${ex.subject}_${ex.date}.pdf`,
+        html2canvas: { scale: 2 },
+        jsPDF: { unit: "mm", format: "a4", orientation: "portrait" }
+      }).from(container).save().then(() => {
+        container.classList.add("hidden");
+        container.innerHTML = "";
+      });
+    };
+
+    // TAB 3: GROUPS MASTER DATA
+    window.renderGroups = () => {
+      const grid = document.getElementById("groupsGrid");
+      const isAdmin = currentUser.role === "admin";
+      let groups = appState.groups || [];
+      if (!isAdmin) {
+        groups = groups.filter(g => (currentUser.groups || []).includes(g.name));
+      }
+
+      grid.innerHTML = groups.map(g => {
+        const groupExams = (appState.requests || []).filter(r => r.groupName === g.name && r.status === "completed");
+        const chemCount = groupExams.filter(x => x.subject === "Kimyo").length;
+        const bioCount = groupExams.filter(x => x.subject === "Biologiya").length;
+
+        return `
+          <div class="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm flex flex-col justify-between gap-4">
+            <div>
+              <div class="flex items-center justify-between">
+                <h3 class="text-xl font-extrabold text-slate-900">${g.name}</h3>
+                <span class="px-2.5 py-1 rounded-lg text-xs font-semibold bg-blue-50 text-blue-700">📍 ${g.branch}</span>
+              </div>
+              <div class="mt-3 text-xs text-slate-600 space-y-1">
+                <p>Kimyo LevelUp: <strong>${chemCount} ta</strong> imtihon</p>
+                <p>Biologiya LevelUp: <strong>${bioCount} ta</strong> imtihon</p>
+              </div>
+            </div>
+            <div class="flex items-center gap-2 pt-3 border-t border-slate-100">
+              <button onclick="openGroupHistory('${g.id}')" class="flex-1 py-2 text-xs font-semibold bg-slate-900 hover:bg-slate-800 text-white rounded-xl">
+                Umumiy xulosa
+              </button>
+              ${isAdmin ? `<button onclick="openGroupModal('${g.id}')" class="px-3 py-2 text-xs font-semibold border border-slate-300 hover:bg-slate-50 rounded-xl">Filialni o'zgartirish</button>` : ""}
+            </div>
+          </div>
+        `;
+      }).join("");
+    };
+
+    window.openGroupHistory = (groupId) => {
+      const g = appState.groups.find(x => x.id === groupId);
+      if (!g) return;
+      document.getElementById("groupModalTitle").textContent = `${g.name} — Umumiy LevelUp tarixi (Joriy filial: ${g.branch})`;
+      const exams = (appState.requests || []).filter(r => r.groupName === g.name);
+
+      const body = document.getElementById("groupModalBody");
+      if (exams.length === 0) {
+        body.innerHTML = `<p class="text-sm text-slate-500">Bu guruhda hali imtihonlar o'tkazilmagan.</p>`;
+      } else {
+        body.innerHTML = exams.map(ex => {
+          const res = ex.results || [];
+          const avg = res.length ? (res.reduce((a, b) => a + b.score, 0) / res.length).toFixed(1) : "—";
+          return `
+            <div class="p-3.5 rounded-xl border border-slate-200 bg-slate-50 flex items-center justify-between text-sm">
+              <div>
+                <div class="font-bold text-slate-900">${ex.subject} (${ex.book}) • <span class="text-xs font-normal text-slate-500">Filial: ${ex.branch}</span></div>
+                <div class="text-xs text-slate-600 mt-0.5">Sana: ${ex.date} • Status: ${ex.status} • O'rtacha ball: <strong>${avg}</strong></div>
+              </div>
+              ${ex.status === 'completed' ? `<button onclick="closeModal('groupModal'); openResultsModal('${ex.id}')" class="text-xs font-semibold text-blue-600 hover:underline">Natijani ko'rish</button>` : ""}
+            </div>
+          `;
+        }).join("");
+      }
+      document.getElementById("groupModal").classList.remove("hidden");
+    };
+
+    window.openGroupModal = (groupId = null) => {
+      const g = groupId ? appState.groups.find(x => x.id === groupId) : null;
+      document.getElementById("groupModalTitle").textContent = g ? `${g.name} — Filialni tahrirlash` : "Yangi guruh qo'shish";
+      document.getElementById("groupModalBody").innerHTML = `
+        <form id="saveGroupForm" class="space-y-4">
+          <div>
+            <label class="block text-sm font-medium text-slate-700 mb-1">Guruh nomi (Masalan: 215-guruh)</label>
+            <input type="text" id="gNameInput" required value="${g ? g.name : ''}" ${g ? 'readonly' : ''} placeholder="215-guruh"
+              class="w-full px-3 py-2 border border-slate-300 rounded-xl ${g ? 'bg-slate-100' : ''}" />
+          </div>
+          <div>
+            <label class="block text-sm font-medium text-slate-700 mb-1">Joriy filial</label>
+            <select id="gBranchInput" class="w-full px-3 py-2 border border-slate-300 rounded-xl bg-white">
+              <option value="Tinchlik" ${g && g.branch === 'Tinchlik' ? 'selected' : ''}>Tinchlik</option>
+              <option value="Nurafshon" ${g && g.branch === 'Nurafshon' ? 'selected' : ''}>Nurafshon</option>
+              <option value="Sirg'ali" ${g && g.branch === "Sirg'ali" ? 'selected' : ''}>Sirg'ali</option>
+            </select>
+            <p class="text-xs text-slate-500 mt-1">Eslatma: Filial o'zgarsa, oldingi imtihonlar tarixi o'zining eski filialida saqlanib qoladi.</p>
+          </div>
+          <div class="flex justify-end gap-2 pt-2">
+            <button type="button" onclick="closeModal('groupModal')" class="px-4 py-2 text-sm text-slate-600 rounded-xl">Bekor qilish</button>
+            <button type="submit" class="px-4 py-2 text-sm font-semibold bg-blue-600 text-white rounded-xl">Saqlash</button>
+          </div>
+        </form>
+      `;
+      document.getElementById("groupModal").classList.remove("hidden");
+
+      document.getElementById("saveGroupForm").addEventListener("submit", async (e) => {
+        e.preventDefault();
+        const name = document.getElementById("gNameInput").value.trim();
+        const branch = document.getElementById("gBranchInput").value;
+        if (g) {
+          const oldB = g.branch;
+          g.branch = branch;
+          closeModal("groupModal");
+          await saveState(`${g.name} filiali ${oldB} dan ${branch} ga o'zgartirildi.`);
+        } else {
+          if (appState.groups.some(x => x.name.toLowerCase() === name.toLowerCase())) {
+            alert("Bu nomdagi guruh allaqachon mavjud!");
+            return;
+          }
+          appState.groups.push({ id: "g_" + Date.now(), name, branch });
+          closeModal("groupModal");
+          await saveState(`Yangi guruh qo'shildi: ${name} (${branch}).`);
+        }
+      });
+    };
+
+    // TAB 4: USERS (ADMIN)
+    window.renderUsers = () => {
+      const tbody = document.getElementById("usersTableBody");
+      tbody.innerHTML = (appState.users || []).map(u => `
+        <tr>
+          <td class="p-4 font-bold text-slate-900">${u.name}</td>
+          <td class="p-4">${u.role === 'admin' ? '<span class="px-2 py-0.5 rounded bg-purple-100 text-purple-800 text-xs font-semibold">Admin</span>' : `Ustoz (${u.subject})`}</td>
+          <td class="p-4 font-mono text-xs text-slate-600">${u.username} / <strong>${u.pin}</strong></td>
+          <td class="p-4 text-xs text-slate-600">${u.role === 'admin' ? 'Barcha guruhlar' : ((u.groups || []).join(', ') || '—')}</td>
+          <td class="p-4 text-right space-x-2">
+            <button onclick="openUserModal('${u.id}')" class="text-blue-600 hover:underline text-xs font-semibold">Tahrirlash</button>
+            ${u.id !== 'u_admin' ? `<button onclick="deleteUser('${u.id}')" class="text-red-600 hover:underline text-xs">O'chirish</button>` : ''}
+          </td>
+        </tr>
+      `).join("");
+    };
+
+    window.openUserModal = (userId = null) => {
+      const u = userId ? appState.users.find(x => x.id === userId) : null;
+      document.getElementById("userModalTitle").textContent = u ? "Foydalanuvchini tahrirlash" : "Yangi foydalanuvchi";
+      document.getElementById("editUserId").value = u ? u.id : "";
+      document.getElementById("userFullName").value = u ? u.name : "";
+      document.getElementById("userLogin").value = u ? u.username : "";
+      document.getElementById("userPin").value = u ? u.pin : "";
+      document.getElementById("userRole").value = u ? u.role : "teacher";
+      document.getElementById("userSubject").value = (u && u.subject) ? u.subject : "Kimyo";
+
+      const selectedGroups = u ? (u.groups || []) : [];
+      document.getElementById("userGroupsCheckboxes").innerHTML = appState.groups.map(g => `
+        <label class="flex items-center gap-2 cursor-pointer">
+          <input type="checkbox" value="${g.name}" class="user-group-cb" ${selectedGroups.includes(g.name) ? 'checked' : ''} />
+          <span>${g.name} (${g.branch})</span>
+        </label>
+      `).join("");
+
+      toggleTeacherFields();
+      document.getElementById("userModal").classList.remove("hidden");
+    };
+
+    window.toggleTeacherFields = () => {
+      const isTeacher = document.getElementById("userRole").value === "teacher";
+      document.getElementById("userSubjectDiv").classList.toggle("hidden", !isTeacher);
+      document.getElementById("userGroupsDiv").classList.toggle("hidden", !isTeacher);
+    };
+
+    document.getElementById("userForm").addEventListener("submit", async (e) => {
+      e.preventDefault();
+      const id = document.getElementById("editUserId").value;
+      const name = document.getElementById("userFullName").value.trim();
+      const username = document.getElementById("userLogin").value.trim().toLowerCase();
+      const pin = document.getElementById("userPin").value.trim();
+      const role = document.getElementById("userRole").value;
+      const subject = role === "teacher" ? document.getElementById("userSubject").value : "";
+      const groups = role === "teacher"
+        ? Array.from(document.querySelectorAll(".user-group-cb:checked")).map(cb => cb.value)
+        : [];
+
+      if (id) {
+        const existing = appState.users.find(x => x.id === id);
+        if (existing) Object.assign(existing, { name, username, pin, role, subject, groups });
+      } else {
+        appState.users.push({ id: "u_" + Date.now(), name, username, pin, role, subject, groups });
+      }
+      closeModal("userModal");
+      await saveState(`Foydalanuvchi saqlandi: ${name} (${username}).`);
+    });
+
+    window.deleteUser = async (id) => {
+      if (!confirm("Foydalanuvchini o'chirasizmi?")) return;
+      appState.users = appState.users.filter(u => u.id !== id);
+      await saveState(`Foydalanuvchi o'chirildi.`);
+    };
+
+    // TAB 5: SHIFTS
+    window.renderShifts = () => {
+      document.getElementById("shiftsList").innerHTML = (appState.shifts || []).map(s => `
+        <div class="bg-white p-5 rounded-2xl border border-slate-200 flex items-center justify-between">
+          <div>
+            <div class="font-bold text-slate-900">${s.name}</div>
+            <div class="text-sm text-blue-600 font-semibold mt-0.5">⏰ ${s.time}</div>
+          </div>
+          <div class="space-x-2">
+            <button onclick="openShiftModal('${s.id}')" class="text-xs font-semibold text-blue-600 hover:underline">Tahrirlash</button>
+            <button onclick="deleteShift('${s.id}')" class="text-xs text-red-600 hover:underline">O'chirish</button>
+          </div>
+        </div>
+      `).join("");
+    };
+
+    window.openShiftModal = (id = null) => {
+      const s = id ? appState.shifts.find(x => x.id === id) : null;
+      document.getElementById("editShiftId").value = s ? s.id : "";
+      document.getElementById("shiftName").value = s ? s.name : "";
+      document.getElementById("shiftTime").value = s ? s.time : "";
+      document.getElementById("shiftModal").classList.remove("hidden");
+    };
+
+    document.getElementById("shiftForm").addEventListener("submit", async (e) => {
+      e.preventDefault();
+      const id = document.getElementById("editShiftId").value;
+      const name = document.getElementById("shiftName").value.trim();
+      const time = document.getElementById("shiftTime").value.trim();
+      if (id) {
+        const s = appState.shifts.find(x => x.id === id);
+        if (s) { s.name = name; s.time = time; }
+      } else {
+        appState.shifts.push({ id: "s_" + Date.now(), name, time });
+      }
+      closeModal("shiftModal");
+      await saveState(`Smena yangilandi: ${name} (${time}).`);
+    });
+
+    window.deleteShift = async (id) => {
+      if (appState.shifts.length <= 1) { alert("Kamida 1 ta smena qolishi kerak."); return; }
+      appState.shifts = appState.shifts.filter(s => s.id !== id);
+      await saveState(`Smena o'chirildi.`);
+    };
+
+    // TAB 6: AUDIT LOG
+    window.renderAuditLogs = () => {
+      document.getElementById("auditLogList").innerHTML = (appState.auditLogs || []).map(l => `
+        <div class="p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-2 text-sm">
+          <div><strong class="text-slate-900">${l.actor}:</strong> <span class="text-slate-700">${l.action}</span></div>
+          <div class="text-xs font-mono text-slate-400">${l.time}</div>
+        </div>
+      `).join("");
+    };
+
+    window.closeModal = (id) => document.getElementById(id).classList.add("hidden");
+
+    initFirebaseSync();
+  </script>
+</body>
+</html>
