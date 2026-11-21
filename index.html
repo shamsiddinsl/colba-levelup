@@ -643,7 +643,6 @@
             document.getElementById("loadingOverlay").classList.add("hidden");
             restoreSessionIfAny();
             if (currentUser) {
-              // Refresh currentUser object from latest state
               const freshUser = appState.users.find(u => u.id === currentUser.id);
               if (freshUser) currentUser = freshUser;
               renderAll();
@@ -653,7 +652,7 @@
           }
         }, (err) => {
           console.error("Firestore error:", err);
-          alert("Firestore ulanish xatosi: Firebase konsolida 'Firestore Database' yoqilganini va 'Test mode' tanlanganini tekshiring. Xato: " + err.message);
+          alert("Firestore ulanish xatosi: " + err.message);
           document.getElementById("loadingOverlay").classList.add("hidden");
         });
       } catch (e) {
@@ -784,7 +783,6 @@
 
       let items = [...(appState.requests || [])];
 
-      // Strict Role Filter: Teacher sees ONLY their own groups / requests
       if (!isAdmin) {
         const allowedGroups = currentUser.groups || [];
         items = items.filter(r => allowedGroups.includes(r.groupName) || r.teacherId === currentUser.id);
@@ -822,7 +820,6 @@
           }
           actionButtons += `<button onclick="deleteRequest('${req.id}')" class="px-2.5 py-2 text-xs text-red-600 hover:bg-red-50 rounded-xl" title="O'chirish">🗑</button>`;
         } else {
-          // Teacher actions
           if (req.status === "counter_proposed" && req.counterProposal) {
             actionButtons += `<button onclick="acceptCounterProposal('${req.id}')" class="px-3.5 py-2 text-xs font-semibold bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl">✓ Taklifni qabul qilish</button>`;
           }
@@ -1162,8 +1159,7 @@
       const reader = new FileReader();
       reader.onload = (e) => {
         const text = e.target.result;
-        const lines = text.split(/?
-/).filter(l => l.trim() !== "");
+        const lines = text.split(/\r?\n/).filter(l => l.trim() !== "");
         if (lines.length < 2) {
           alert("CSV fayl bo'sh yoki noto'g'ri formatda.");
           return;
@@ -1206,12 +1202,7 @@
     };
 
     window.downloadSampleZipGrade = () => {
-      const csv = "First Name,Last Name,Num Correct
-Sardor,Aliyev,34
-Dilnoza,Karimova,28
-Behzod,Tursunov,21
-Zarina,Umarova,38
-";
+      const csv = "First Name,Last Name,Num Correct\nSardor,Aliyev,34\nDilnoza,Karimova,28\nBehzod,Tursunov,21\nZarina,Umarova,38\n";
       const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
       const link = document.createElement("a");
       link.href = URL.createObjectURL(blob);
