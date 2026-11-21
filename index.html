@@ -267,7 +267,7 @@
       </section>
 
       <!-- TAB 4: USERS (OWNER & BRANCH ADMIN) -->
-      <section id="view-users" class="hidden space-y-6">
+      <section id="view-users" class="hidden space-y-5">
         <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
           <div>
             <h1 class="text-2xl font-extrabold text-slate-900">Foydalanuvchilar boshqaruvi</h1>
@@ -276,6 +276,24 @@
           <button onclick="openUserModal()" class="colba-gradient hover:opacity-95 text-white font-semibold px-4 py-2.5 rounded-xl shadow-sm transition text-sm">
             + Yangi foydalanuvchi
           </button>
+        </div>
+
+        <!-- Qidiruv va Filtrlar -->
+        <div class="bg-white p-3.5 rounded-2xl border border-sky-100 flex flex-wrap items-center gap-3 shadow-2xs">
+          <input type="text" id="searchUserInput" oninput="renderUsers()" placeholder="Ism, login yoki guruh bo'yicha qidirish..."
+            class="px-3.5 py-2 border border-slate-300 rounded-xl text-sm flex-1 min-w-[220px] outline-none focus:border-sky-500" />
+          <select id="filterUserRole" onchange="renderUsers()" class="px-3 py-2 border border-slate-300 rounded-xl text-sm bg-white">
+            <option value="ALL">Barcha statuslar</option>
+            <option value="owner">Ega (Owner)</option>
+            <option value="branch_admin">Filial Admini</option>
+            <option value="teacher">Ustoz</option>
+          </select>
+          <select id="filterUserBranch" onchange="renderUsers()" class="px-3 py-2 border border-slate-300 rounded-xl text-sm bg-white">
+            <option value="ALL">Barcha filiallar</option>
+            <option value="Tinchlik">Tinchlik</option>
+            <option value="Nurafshon">Nurafshon</option>
+            <option value="Sirg'ali">Sirg'ali</option>
+          </select>
         </div>
 
         <div class="bg-white rounded-2xl border border-slate-200 overflow-x-auto">
@@ -293,7 +311,6 @@
           </table>
         </div>
       </section>
-
       <!-- TAB 5: SHIFTS & SETTINGS (OWNER ONLY) -->
       <section id="view-settings" class="hidden space-y-6">
         <div class="flex items-center justify-between">
@@ -1886,14 +1903,71 @@
     window.renderUsers = () => {
       document.getElementById("usersSubtitle").textContent = isOwner()
         ? "Ega (Super Admin), Filial Adminlari va Ustozlarni boshqarish"
-        : `${currentUser.branch} filiali ustozlarini boshqarish`;
+        : `${currentUser.branch} filiali adminlari va ustozlarini boshqarish`;
+
+      const searchQ = (document.getElementById("searchUserInput")?.value || "").trim().toLowerCase();
+      const roleFilter = document.getElementById("filterUserRole")?.value || "ALL";
+      const branchFilterEl = document.getElementById("filterUserBranch");
+
+      if (branchFilterEl) {
+        if (isBranchAdmin()) {
+          branchFilterEl.value = currentUser.branch;
+          branchFilterEl.classList.add("hidden");
+        } else {
+          branchFilterEl.classList.remove("hidden");
+        }
+      }
+      const branchFilter = branchFilterEl ? branchFilterEl.value : "ALL";
 
       let usersToShow = [...(appState.users || [])];
+
+      // Filial admini faqat o'z filialidagi adminlarni va ustozlarni ko'radi
       if (isBranchAdmin()) {
-        usersToShow = usersToShow.filter(u => u.role === "teacher");
+        usersToShow = usersToShow.filter(u =>
+          u.role === "teacher" || (u.role === "branch_admin" && u.branch === currentUser.branch)
+        );
+      }
+
+      // Status (rol) bo'yicha filtr
+      if (roleFilter !== "ALL") {
+        usersToShow = usersToShow.filter(u => u.role === roleFilter);
+      }
+
+      // Filial bo'yicha filtr (Ega uchun)
+      if (isOwner() && branchFilter !== "ALL") {
+        usersToShow = usersToShow.filter(u => {
+          if (u.role === "owner") return true;
+          if (u.role === "branch_admin") return u.branch === branchFilter;
+          if (u.role === "teacher") {
+            return (u.groups || []).some(gn => {
+              const gObj = appState.groups.find(g => g.name === gn);
+              return gObj && gObj.branch === branchFilter;
+            });
+          }
+          return false;
+        });
+      }
+
+      // Matnli qidiruv (Ism, login, guruh, fan, filial)
+      if (searchQ) {
+        usersToShow = usersToShow.filter(u => {
+          const hay = [
+            u.name,
+            u.username,
+            u.subject || "",
+            u.branch || "",
+            ...(u.groups || [])
+          ].join(" ").toLowerCase();
+          return hay.includes(searchQ);
+        });
       }
 
       const tbody = document.getElementById("usersTableBody");
+      if (usersToShow.length === 0) {
+        tbody.innerHTML = `<tr><td colspan="5" class="p-8 text-center text-slate-400">Mos foydalanuvchilar topilmadi.</td></tr>`;
+        return;
+      }
+
       tbody.innerHTML = usersToShow.map(u => {
         let roleBadge = "";
         let scopeText = "";
@@ -1908,7 +1982,9 @@
           scopeText = (u.groups || []).join(", ") || "Guruh biriktirilmagan";
         }
 
-        const canManage = isOwner() || (isBranchAdmin() && u.role === "teacher");
+        const canManage = isOwner() || (isBranchAdmin() && (u.role === "teacher" || (u.role === "branch_admin" && u.branch === currentUser.branch)));
+        const canDelete = canManage && u.role !== "owner" && u.id !== currentUser.id;
+
         return `
           <tr>
             <td class="p-4 font-bold text-slate-900">${u.name}</td>
@@ -1917,7 +1993,7 @@
             <td class="p-4 text-xs text-slate-600">${scopeText}</td>
             <td class="p-4 text-right space-x-2">
               ${canManage ? `<button onclick="openUserModal('${u.id}')" class="text-sky-600 hover:underline text-xs font-bold">Tahrirlash</button>` : ''}
-              ${canManage && u.role !== 'owner' ? `<button onclick="deleteUser('${u.id}')" class="text-red-600 hover:underline text-xs">O'chirish</button>` : ''}
+              ${canDelete ? `<button onclick="deleteUser('${u.id}')" class="text-red-600 hover:underline text-xs">O'chirish</button>` : ''}
             </td>
           </tr>
         `;
@@ -1940,12 +2016,27 @@
           <option value="owner">Ega (Super Admin)</option>
         `;
       } else {
-        roleSel.innerHTML = `<option value="teacher">Ustoz</option>`;
+        roleSel.innerHTML = `
+          <option value="teacher">Ustoz</option>
+          <option value="branch_admin">Filial Admini</option>
+        `;
       }
       roleSel.value = u ? u.role : "teacher";
 
       document.getElementById("userSubject").value = (u && u.subject) ? u.subject : "Kimyo";
-      document.getElementById("userBranchSelect").value = (u && u.branch && u.branch !== "ALL") ? u.branch : "Tinchlik";
+
+      const branchSel = document.getElementById("userBranchSelect");
+      if (isBranchAdmin()) {
+        branchSel.innerHTML = `<option value="${currentUser.branch}">${currentUser.branch} filiali</option>`;
+        branchSel.value = currentUser.branch;
+      } else {
+        branchSel.innerHTML = `
+          <option value="Tinchlik">Tinchlik filiali</option>
+          <option value="Nurafshon">Nurafshon filiali</option>
+          <option value="Sirg'ali">Sirg'ali filiali</option>
+        `;
+        branchSel.value = (u && u.branch && u.branch !== "ALL") ? u.branch : "Tinchlik";
+      }
 
       const selectedGroups = u ? (u.groups || []) : [];
       const groupsForCheck = isBranchAdmin()
@@ -1976,9 +2067,14 @@
       const name = document.getElementById("userFullName").value.trim();
       const username = document.getElementById("userLogin").value.trim().toLowerCase();
       const pin = document.getElementById("userPin").value.trim();
-      const role = isOwner() ? document.getElementById("userRole").value : "teacher";
+
+      let role = document.getElementById("userRole").value;
+      if (!isOwner() && role === "owner") role = "branch_admin";
+
       const subject = role === "teacher" ? document.getElementById("userSubject").value : "";
-      const branch = role === "branch_admin" ? document.getElementById("userBranchSelect").value : (role === "owner" ? "ALL" : "");
+      const branch = role === "branch_admin"
+        ? (isOwner() ? document.getElementById("userBranchSelect").value : currentUser.branch)
+        : (role === "owner" ? "ALL" : "");
 
       let groups = [];
       if (role === "teacher") {
@@ -2015,12 +2111,11 @@
 
     window.deleteUser = async (id) => {
       const target = appState.users.find(u => u.id === id);
-      if (!target || target.role === "owner") return;
+      if (!target || target.role === "owner" || target.id === currentUser.id) return;
       if (!confirm(`"${target.name}" foydalanuvchisini o'chirasizmi?`)) return;
       appState.users = appState.users.filter(u => u.id !== id);
       await saveState(`Foydalanuvchi o'chirildi: ${target.name}.`);
     };
-
     // TAB 5: SHIFTS (OWNER ONLY)
     window.renderShifts = () => {
       document.getElementById("shiftsList").innerHTML = (appState.shifts || []).map(s => `
