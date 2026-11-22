@@ -1502,13 +1502,7 @@
       link.download = "zipgrade_namuna.csv";
       link.click();
     };
-      const csv = "First Name,Last Name,Num Correct\nSardor,Aliyev,34\nDilnoza,Karimova,28\nBehzod,Tursunov,21\nZarina,Umarova,38\n";
-      const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
-      const link = document.createElement("a");
-      link.href = URL.createObjectURL(blob);
-      link.download = "zipgrade_namuna.csv";
-      link.click();
-    };
+      
 
     // TAB 2: FINAL RESULTS (Role-based smart filters)
     window.updateResBookFilter = () => {
