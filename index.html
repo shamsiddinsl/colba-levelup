@@ -540,13 +540,9 @@
             </select>
           </div>
           <div id="userBranchDiv" class="hidden">
-            <label class="block text-xs font-bold text-slate-600 mb-1">Mas'ul filiali</label>
-            <select id="userBranchSelect" class="w-full px-3 py-2 border border-slate-300 rounded-xl text-sm bg-white">
-              <option value="Tinchlik">Tinchlik filiali</option>
-              <option value="Nurafshon">Nurafshon filiali</option>
-              <option value="Sirg'ali">Sirg'ali filiali</option>
-            </select>
-          </div>
+          <label class="block text-xs font-bold text-slate-600 mb-1">Mas'ul filiallari (bir nechta tanlash mumkin)</label>
+          <div id="userBranchesCheckboxes" class="grid grid-cols-3 gap-2 border border-slate-200 rounded-xl p-2.5 text-sm bg-slate-50"></div>
+        </div>
         </div>
         <div id="userGroupsDiv">
           <label class="block text-xs font-bold text-slate-600 mb-1">Biriktirilgan guruhlar (tanlang)</label>
@@ -645,6 +641,14 @@
     const isBranchAdmin = () => currentUser && currentUser.role === "branch_admin";
     const isStaff = () => isOwner() || isBranchAdmin();
     const isTeacher = () => currentUser && currentUser.role === "teacher";
+
+    const getUserBranches = (u = currentUser) => {
+      if (!u) return [];
+      if (Array.isArray(u.branches) && u.branches.length > 0) return u.branches;
+      if (u.branch && u.branch !== "ALL") return [u.branch];
+      return [];
+    };
+    const canAccessBranch = (b) => isOwner() || (isBranchAdmin() && getUserBranches().includes(b));
 
     // Sync with Firestore
     async function initFirebaseSync() {
@@ -761,7 +765,8 @@
       } else if (isBranchAdmin()) {
         rolePill.textContent = "Filial Admini";
         rolePill.className = "px-2 py-0.5 rounded-md text-[11px] font-bold uppercase bg-amber-100 text-amber-800";
-        detailEl.textContent = `${currentUser.branch} filiali`;
+        const bList = getUserBranches();
+        detailEl.textContent = bList.length > 1 ? bList.join(", ") : `${bList[0] || ""} filiali`;
       } else {
         rolePill.textContent = "Ustoz";
         rolePill.className = "px-2 py-0.5 rounded-md text-[11px] font-bold uppercase bg-emerald-100 text-emerald-800";
@@ -776,14 +781,23 @@
       const reqSubjEl = document.getElementById("filterReqSubject");
 
       if (isOwner()) {
+        reqBranchEl.innerHTML = `<option value="ALL">Barcha filiallar</option><option value="Tinchlik">Tinchlik filiali</option><option value="Nurafshon">Nurafshon filiali</option><option value="Sirg'ali">Sirg'ali filiali</option>`;
         reqBranchEl.classList.remove("hidden");
         reqSubjEl.classList.remove("hidden");
         document.getElementById("requestsSubtitle").textContent = "Barcha filiallar kesimida imtihon jadvali va so'rovlar boshqaruvi";
       } else if (isBranchAdmin()) {
-        reqBranchEl.value = currentUser.branch;
-        reqBranchEl.classList.add("hidden");
+        const bList = getUserBranches();
+        if (bList.length > 1) {
+          reqBranchEl.innerHTML = `<option value="ALL">Barcha filiallarim</option>` + bList.map(b => `<option value="${b}">${b} filiali</option>`).join("");
+          reqBranchEl.value = "ALL";
+          reqBranchEl.classList.remove("hidden");
+        } else {
+          reqBranchEl.innerHTML = `<option value="${bList[0] || ""}">${bList[0] || ""} filiali</option>`;
+          reqBranchEl.value = bList[0] || "";
+          reqBranchEl.classList.add("hidden");
+        }
         reqSubjEl.classList.remove("hidden");
-        document.getElementById("requestsSubtitle").textContent = `${currentUser.branch} filiali imtihon so'rovlari va jadvali`;
+        document.getElementById("requestsSubtitle").textContent = `${bList.join(", ")} filiallari imtihon so'rovlari va jadvali`;
       } else {
         reqSubjEl.value = currentUser.subject;
         reqSubjEl.classList.add("hidden");
@@ -808,10 +822,20 @@
         resSubjWrap.classList.remove("hidden");
         resGrid.className = "bg-white p-4 rounded-2xl border border-sky-100 grid sm:grid-cols-4 gap-3 shadow-2xs";
       } else if (isBranchAdmin()) {
-        document.getElementById("filterResBranch").value = currentUser.branch;
-        resBranchWrap.classList.add("hidden");
+        const bList = getUserBranches();
+        const sel = document.getElementById("filterResBranch");
+        if (bList.length > 1) {
+          sel.innerHTML = `<option value="ALL">Barcha filiallarim</option>` + bList.map(b => `<option value="${b}">${b}</option>`).join("");
+          sel.value = "ALL";
+          resBranchWrap.classList.remove("hidden");
+          resGrid.className = "bg-white p-4 rounded-2xl border border-sky-100 grid sm:grid-cols-4 gap-3 shadow-2xs";
+        } else {
+          sel.innerHTML = `<option value="${bList[0] || ""}">${bList[0] || ""}</option>`;
+          sel.value = bList[0] || "";
+          resBranchWrap.classList.add("hidden");
+          resGrid.className = "bg-white p-4 rounded-2xl border border-sky-100 grid sm:grid-cols-3 gap-3 shadow-2xs";
+        }
         resSubjWrap.classList.remove("hidden");
-        resGrid.className = "bg-white p-4 rounded-2xl border border-sky-100 grid sm:grid-cols-3 gap-3 shadow-2xs";
       } else {
         document.getElementById("filterResSubject").value = currentUser.subject;
         resSubjWrap.classList.add("hidden");
@@ -897,7 +921,7 @@
       let items = [...(appState.requests || [])];
 
       if (isBranchAdmin()) {
-        items = items.filter(r => r.branch === currentUser.branch);
+        items = items.filter(r => canAccessBranch(r.branch));
       } else if (isTeacher()) {
         const allowedGroups = currentUser.groups || [];
         items = items.filter(r => allowedGroups.includes(r.groupName) && r.subject === currentUser.subject);
