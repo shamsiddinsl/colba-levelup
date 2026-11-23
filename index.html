@@ -1128,7 +1128,7 @@
       const groupSelect = document.getElementById("reqGroupSelect");
       let availableGroups = appState.groups || [];
       if (isBranchAdmin()) {
-        availableGroups = availableGroups.filter(g => g.branch === currentUser.branch);
+        availableGroups = availableGroups.filter(g => canAccessBranch(g.branch));
       } else if (isTeacher()) {
         availableGroups = availableGroups.filter(g => (currentUser.groups || []).includes(g.name));
       }
@@ -1547,7 +1547,7 @@
       const prevVal = sel.value;
       let completed = (appState.requests || []).filter(r => r.status === "completed");
       if (isBranchAdmin()) {
-        completed = completed.filter(r => r.branch === currentUser.branch);
+        completed = completed.filter(r => canAccessBranch(r.branch));
       } else if (isTeacher()) {
         const allowed = currentUser.groups || [];
         completed = completed.filter(r => allowed.includes(r.groupName) && r.subject === currentUser.subject);
@@ -1566,7 +1566,7 @@
 
       let completed = (appState.requests || []).filter(r => r.status === "completed");
       if (isBranchAdmin()) {
-        completed = completed.filter(r => r.branch === currentUser.branch);
+        completed = completed.filter(r => canAccessBranch(r.branch));
       } else if (isTeacher()) {
         const allowed = currentUser.groups || [];
         completed = completed.filter(r => allowed.includes(r.groupName) && r.subject === currentUser.subject);
@@ -1748,14 +1748,23 @@
       const branchSel = document.getElementById("filterGroupBranch");
       const q = document.getElementById("searchGroupInput").value.trim().toLowerCase();
 
+      let groups = [...(appState.groups || [])];
       if (isBranchAdmin()) {
-        branchSel.value = currentUser.branch;
-        branchSel.classList.add("hidden");
+        const bList = getUserBranches();
+        groups = groups.filter(g => canAccessBranch(g.branch));
+        if (bList.length > 1) {
+          const prev = branchSel.value;
+          branchSel.innerHTML = `<option value="ALL">Barcha filiallarim</option>` + bList.map(b => `<option value="${b}">${b}</option>`).join("");
+          branchSel.value = bList.includes(prev) ? prev : "ALL";
+          branchSel.classList.remove("hidden");
+        } else {
+          branchSel.value = bList[0] || "";
+          branchSel.classList.add("hidden");
+        }
       } else {
         branchSel.classList.remove("hidden");
       }
 
-      let groups = [...(appState.groups || [])];
       if (branchSel.value !== "ALL") groups = groups.filter(g => g.branch === branchSel.value);
 
       if (q) {
@@ -1874,13 +1883,10 @@
       const currentChemTeacher = g ? chemTeachers.find(u => (u.groups || []).includes(g.name)) : null;
       const currentBioTeacher = g ? bioTeachers.find(u => (u.groups || []).includes(g.name)) : null;
 
-      const branchOptions = isBranchAdmin()
-        ? `<option value="${currentUser.branch}">${currentUser.branch}</option>`
-        : `
-          <option value="Tinchlik" ${g && g.branch === 'Tinchlik' ? 'selected' : ''}>Tinchlik</option>
-          <option value="Nurafshon" ${g && g.branch === 'Nurafshon' ? 'selected' : ''}>Nurafshon</option>
-          <option value="Sirg'ali" ${g && g.branch === "Sirg'ali" ? 'selected' : ''}>Sirg'ali</option>
-        `;
+      const allowedGroupBranches = isBranchAdmin() ? getUserBranches() : ["Tinchlik", "Nurafshon", "Sirg'ali"];
+      const branchOptions = allowedGroupBranches.map(b =>
+        `<option value="${b}" ${g && g.branch === b ? 'selected' : ''}>${b}</option>`
+      ).join("");
 
       document.getElementById("groupModalBody").innerHTML = `
         <form id="saveGroupForm" class="space-y-4">
@@ -1973,9 +1979,10 @@
 
     // TAB 4: USERS
     window.renderUsers = () => {
+      const myBranches = getUserBranches();
       document.getElementById("usersSubtitle").textContent = isOwner()
         ? "Ega (Super Admin), Filial Adminlari va Ustozlarni boshqarish"
-        : `${currentUser.branch} filiali adminlari va ustozlarini boshqarish`;
+        : `${myBranches.join(", ")} filiallari adminlari va ustozlarini boshqarish`;
 
       const searchQ = (document.getElementById("searchUserInput")?.value || "").trim().toLowerCase();
       const roleFilter = document.getElementById("filterUserRole")?.value || "ALL";
@@ -1983,8 +1990,15 @@
 
       if (branchFilterEl) {
         if (isBranchAdmin()) {
-          branchFilterEl.value = currentUser.branch;
-          branchFilterEl.classList.add("hidden");
+          if (myBranches.length > 1) {
+            const prev = branchFilterEl.value;
+            branchFilterEl.innerHTML = `<option value="ALL">Barcha filiallarim</option>` + myBranches.map(b => `<option value="${b}">${b}</option>`).join("");
+            branchFilterEl.value = myBranches.includes(prev) ? prev : "ALL";
+            branchFilterEl.classList.remove("hidden");
+          } else {
+            branchFilterEl.value = myBranches[0] || "";
+            branchFilterEl.classList.add("hidden");
+          }
         } else {
           branchFilterEl.classList.remove("hidden");
         }
@@ -1993,10 +2007,10 @@
 
       let usersToShow = [...(appState.users || [])];
 
-      // Filial admini faqat o'z filialidagi adminlarni va ustozlarni ko'radi
+      // Filial admini faqat o'z filiallaridagi adminlarni va ustozlarni ko'radi
       if (isBranchAdmin()) {
         usersToShow = usersToShow.filter(u =>
-          u.role === "teacher" || (u.role === "branch_admin" && u.branch === currentUser.branch)
+          u.role === "teacher" || (u.role === "branch_admin" && getUserBranches(u).some(b => myBranches.includes(b)))
         );
       }
 
@@ -2005,11 +2019,11 @@
         usersToShow = usersToShow.filter(u => u.role === roleFilter);
       }
 
-      // Filial bo'yicha filtr (Ega uchun)
-      if (isOwner() && branchFilter !== "ALL") {
+      // Filial bo'yicha filtr
+      if (branchFilter !== "ALL") {
         usersToShow = usersToShow.filter(u => {
           if (u.role === "owner") return true;
-          if (u.role === "branch_admin") return u.branch === branchFilter;
+          if (u.role === "branch_admin") return getUserBranches(u).includes(branchFilter);
           if (u.role === "teacher") {
             return (u.groups || []).some(gn => {
               const gObj = appState.groups.find(g => g.name === gn);
@@ -2027,8 +2041,8 @@
             u.name,
             u.username,
             u.subject || "",
-            u.branch || "",
-            ...(u.groups || [])
+          ...getUserBranches(u),
+          ...(u.groups || [])
           ].join(" ").toLowerCase();
           return hay.includes(searchQ);
         });
@@ -2047,14 +2061,15 @@
           roleBadge = `<span class="px-2.5 py-0.5 rounded-md bg-sky-100 text-sky-800 text-xs font-bold">👑 Ega (Owner)</span>`;
           scopeText = "Barcha filiallar";
         } else if (u.role === "branch_admin") {
-          roleBadge = `<span class="px-2.5 py-0.5 rounded-md bg-amber-100 text-amber-800 text-xs font-bold">🛡 Filial Admini</span>`;
-          scopeText = `${u.branch} filiali`;
+          roleBadge = `<span class="px-2.5 py-0.5 rounded-md bg-amber-100 text-amber-800 text-xs font-bold">🛡️ Filial Admini</span>`;
+          const ub = getUserBranches(u);
+          scopeText = ub.length > 1 ? ub.join(", ") : `${ub[0] || ""} filiali`;
         } else {
           roleBadge = `<span class="px-2.5 py-0.5 rounded-md bg-emerald-50 text-emerald-700 text-xs font-semibold">Ustoz (${u.subject})</span>`;
           scopeText = (u.groups || []).join(", ") || "Guruh biriktirilmagan";
         }
 
-        const canManage = isOwner() || (isBranchAdmin() && (u.role === "teacher" || (u.role === "branch_admin" && u.branch === currentUser.branch)));
+        const canManage = isOwner() || (isBranchAdmin() && (u.role === "teacher" || (u.role === "branch_admin" && getUserBranches(u).some(b => myBranches.includes(b)))));
         const canDelete = canManage && u.role !== "owner" && u.id !== currentUser.id;
 
         return `
@@ -2097,22 +2112,18 @@
 
       document.getElementById("userSubject").value = (u && u.subject) ? u.subject : "Kimyo";
 
-      const branchSel = document.getElementById("userBranchSelect");
-      if (isBranchAdmin()) {
-        branchSel.innerHTML = `<option value="${currentUser.branch}">${currentUser.branch} filiali</option>`;
-        branchSel.value = currentUser.branch;
-      } else {
-        branchSel.innerHTML = `
-          <option value="Tinchlik">Tinchlik filiali</option>
-          <option value="Nurafshon">Nurafshon filiali</option>
-          <option value="Sirg'ali">Sirg'ali filiali</option>
-        `;
-        branchSel.value = (u && u.branch && u.branch !== "ALL") ? u.branch : "Tinchlik";
-      }
+      const allowedAdminBranches = isBranchAdmin() ? getUserBranches() : ["Tinchlik", "Nurafshon", "Sirg'ali"];
+      const selectedAdminBranches = u ? getUserBranches(u) : (isBranchAdmin() ? getUserBranches() : ["Tinchlik"]);
+      document.getElementById("userBranchesCheckboxes").innerHTML = allowedAdminBranches.map(b => `
+        <label class="flex items-center gap-2 cursor-pointer bg-white px-2.5 py-1.5 rounded-lg border border-slate-200">
+          <input type="checkbox" value="${b}" class="user-branch-cb" ${selectedAdminBranches.includes(b) ? "checked" : ""} />
+          <span>${b}</span>
+        </label>
+      `).join("");
 
       const selectedGroups = u ? (u.groups || []) : [];
       const groupsForCheck = isBranchAdmin()
-        ? appState.groups.filter(g => g.branch === currentUser.branch)
+        ? appState.groups.filter(g => canAccessBranch(g.branch))
         : appState.groups;
 
       document.getElementById("userGroupsCheckboxes").innerHTML = groupsForCheck.map(g => `
@@ -2144,9 +2155,15 @@
       if (!isOwner() && role === "owner") role = "branch_admin";
 
       const subject = role === "teacher" ? document.getElementById("userSubject").value : "";
-      const branch = role === "branch_admin"
-        ? (isOwner() ? document.getElementById("userBranchSelect").value : currentUser.branch)
-        : (role === "owner" ? "ALL" : "");
+      let branches = [];
+      if (role === "branch_admin") {
+        branches = Array.from(document.querySelectorAll(".user-branch-cb:checked")).map(cb => cb.value);
+        if (branches.length === 0) {
+          alert("Filial admini uchun kamida bitta filialni belgilang!");
+          return;
+        }
+      }
+      const branch = role === "branch_admin" ? branches[0] : (role === "owner" ? "ALL" : "");
 
       let groups = [];
       if (role === "teacher") {
@@ -2156,7 +2173,7 @@
           const otherBranchGroups = existing
             ? (existing.groups || []).filter(gn => {
                 const gObj = appState.groups.find(g => g.name === gn);
-                return gObj && gObj.branch !== currentUser.branch;
+                return gObj && !canAccessBranch(gObj.branch);
               })
             : [];
           groups = [...new Set([...otherBranchGroups, ...checked])];
@@ -2173,9 +2190,9 @@
 
       if (id) {
         const existing = appState.users.find(x => x.id === id);
-        if (existing) Object.assign(existing, { name, username, pin, role, branch, subject, groups });
+        if (existing) Object.assign(existing, { name, username, pin, role, branch, branches, subject, groups });
       } else {
-        appState.users.push({ id: "u_" + Date.now(), name, username, pin, role, branch, subject, groups });
+        appState.users.push({ id: "u_" + Date.now(), name, username, pin, role, branch, branches, subject, groups });
       }
       closeModal("userModal");
       await saveState(`Foydalanuvchi saqlandi: ${name} (${role}).`);
